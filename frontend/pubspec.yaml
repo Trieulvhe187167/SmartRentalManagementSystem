@@ -1,0 +1,53 @@
+name: frontend
+description: "Lumina Resident - Smart Rental Management App for tenants and building administrators."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Networking
+  dio: ^5.4.0
+
+  # Secure storage for JWT
+  flutter_secure_storage: ^9.0.0
+
+  # Navigation
+  go_router: ^13.2.0
+
+  # State management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.4
+
+  # UI / Fonts
+  google_fonts: ^6.2.1
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+  cupertino_icons: ^1.0.8
+
+  # Charts (revenue report screen)
+  fl_chart: ^0.68.0
+
+  # Localization / formatting
+  intl: ^0.20.2
+
+  # Local preferences
+  shared_preferences: ^2.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.8
+  riverpod_generator: ^2.3.9
+  json_serializable: ^6.7.1
+
+flutter:
+  uses-material-design: true

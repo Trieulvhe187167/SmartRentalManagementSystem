@@ -1,0 +1,40 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: rental-management-api
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/rental_management_mvp?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:sa123}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  jackson:
+    visibility:
+      field: any
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:change-this-development-secret-change-this-development-secret}
+      access-token-expiration-minutes: ${JWT_ACCESS_TOKEN_EXPIRATION_MINUTES:120}
+      issuer: ${JWT_ISSUER:rental-management-api}
+  bootstrap:
+    admin-username: ${BOOTSTRAP_ADMIN_USERNAME:admin}
+    admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:Admin@123}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    AUDIT: INFO
