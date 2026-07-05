@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/api/api_client.dart';
 import '../../data/repositories/auth_repository.dart';
 
+import '../../data/models/room_models.dart';
+
 // ─── Screen imports ───────────────────────────────────────
 import '../../presentation/auth/splash_screen.dart';
 import '../../presentation/auth/login_screen.dart';
@@ -25,6 +27,11 @@ import '../../presentation/admin/invoice_management_screen.dart';
 import '../../presentation/admin/meter_reading_screen.dart';
 import '../../presentation/admin/revenue_report_screen.dart';
 import '../../presentation/admin/maintenance_management_screen.dart';
+import '../../presentation/admin/room_form_screen.dart';
+import '../../presentation/admin/tenant_detail_screen.dart';
+import '../../presentation/admin/payment_recording_screen.dart';
+import '../../presentation/admin/maintenance_detail_screen.dart';
+import '../../presentation/admin/service_management_screen.dart';
 import '../../presentation/shared/unauthorized_screen.dart';
 import '../../presentation/shared/network_error_screen.dart';
 
@@ -58,9 +65,16 @@ class AppRoutes {
   static const adminMeterReadings = '/admin/meter-readings';
   static const adminRevenue = '/admin/revenue';
   static const adminMaintenance = '/admin/maintenance';
+  static const adminRoomForm = '/admin/rooms/form';
+  static const adminTenantDetail = '/admin/tenants/:id';
+  static const adminPaymentRecording = '/admin/payments/record';
+  static const adminMaintenanceDetail = '/admin/maintenance/:id';
+  static const adminServices = '/admin/services';
 
   static String invoiceDetail(int id) => '/tenant/invoices/$id';
   static String roomDetail(int id) => '/admin/rooms/$id';
+  static String tenantDetail(int id) => '/admin/tenants/$id';
+  static String maintenanceDetail(int id) => '/admin/maintenance/$id';
 }
 
 // ─── Router provider ─────────────────────────────────────
@@ -227,6 +241,10 @@ final _routes = <RouteBase>[
         path: AppRoutes.adminMaintenance,
         builder: (context, state) => const AdminMaintenanceManagementScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.adminServices,
+        builder: (context, state) => const AdminServiceManagementScreen(),
+      ),
     ],
   ),
   GoRoute(
@@ -234,6 +252,43 @@ final _routes = <RouteBase>[
     builder: (context, state) {
       final id = int.parse(state.pathParameters['id']!);
       return AdminRoomDetailScreen(roomId: id);
+    },
+  ),
+  GoRoute(
+    path: AppRoutes.adminRoomForm,
+    builder: (context, state) {
+      final extra = state.extra as Map<String, dynamic>?;
+      final roomId = extra?['roomId'] as int?;
+      final room = extra?['room'] as Room?;
+      return AdminRoomFormScreen(roomId: roomId, existingRoom: room);
+    },
+  ),
+  GoRoute(
+    path: AppRoutes.adminTenantDetail,
+    builder: (context, state) {
+      final id = int.parse(state.pathParameters['id']!);
+      return AdminTenantDetailScreen(tenantId: id);
+    },
+  ),
+  GoRoute(
+    path: AppRoutes.adminPaymentRecording,
+    builder: (context, state) {
+      final extra = state.extra as Map<String, dynamic>;
+      return AdminPaymentRecordingScreen(
+        invoiceId: extra['invoiceId'] as int,
+        remainingAmount: extra['remainingAmount'] as double,
+        tenantName: extra['tenantName'] as String?,
+        roomNumber: extra['roomNumber'] as String?,
+        billingMonth: extra['billingMonth'] as int?,
+        billingYear: extra['billingYear'] as int?,
+      );
+    },
+  ),
+  GoRoute(
+    path: AppRoutes.adminMaintenanceDetail,
+    builder: (context, state) {
+      final id = int.parse(state.pathParameters['id']!);
+      return AdminMaintenanceDetailScreen(requestId: id);
     },
   ),
   GoRoute(

@@ -118,12 +118,17 @@ class MaintenanceUpdate {
   });
 
   factory MaintenanceUpdate.fromJson(Map<String, dynamic> json) {
+    final createdBy = json['createdByUser'];
     return MaintenanceUpdate(
       id: json['id'] as int?,
-      status: json['status'] as String?,
-      notes: json['notes'] as String?,
-      updatedBy: json['updatedBy'] as String?,
-      updatedAt: json['updatedAt'] as String?,
+      status: json['status'] as String? ?? json['newStatus'] as String?,
+      notes: json['notes'] as String? ?? json['content'] as String?,
+      updatedBy: json['updatedBy'] as String? ??
+          (createdBy is Map<String, dynamic>
+              ? (createdBy['fullName'] as String? ??
+                  createdBy['username'] as String?)
+              : null),
+      updatedAt: json['updatedAt'] as String? ?? json['createdAt'] as String?,
     );
   }
 

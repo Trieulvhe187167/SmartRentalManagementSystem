@@ -67,4 +67,14 @@ public interface MaintenanceRequestRepository extends JpaRepository<MaintenanceR
     public Optional<MaintenanceRequestEntity> findByIdAndRequesterUserIdAndIsDeletedFalse(Long id, Long userId);
     public Page<MaintenanceRequestEntity> findByStatusAndIsDeletedFalse(MaintenanceStatus status, Pageable pageable);
     public long countByStatusInAndIsDeletedFalse(Collection<MaintenanceStatus> statuses);
+
+    @Query("""
+            select r from MaintenanceRequestEntity r
+            where r.isDeleted = false
+              and (:status is null or r.status = :status)
+              and (:tenantId is null or r.contract.primaryTenant.id = :tenantId)
+            """)
+    public Page<MaintenanceRequestEntity> search(@Param("status") MaintenanceStatus status,
+                                                 @Param("tenantId") Long tenantId,
+                                                 Pageable pageable);
 }

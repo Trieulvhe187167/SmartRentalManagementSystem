@@ -50,22 +50,31 @@ class ServiceItem {
 
 class ServiceRequest {
   final String? name;
+  final String? code;
   final String? type;
   final String? unit;
+  final String? chargeType;
   final String? description;
+  final bool? active;
 
   const ServiceRequest({
     required this.name,
+    this.code,
     required this.type,
     required this.unit,
+    this.chargeType,
     this.description,
+    this.active,
   });
 
   Map<String, dynamic> toJson() => {
         'name': name,
+        'code': code ?? type,
         'type': type,
         'unit': unit,
+        'chargeType': chargeType ?? _chargeTypeFromServiceType(type),
         if (description != null) 'description': description,
+        if (active != null) 'active': active,
       };
 }
 
@@ -89,8 +98,9 @@ class ServicePrice {
       id: json['id'] as int?,
       serviceId: json['serviceId'] as int?,
       serviceName: json['serviceName'] as String?,
-      price: (json['price'] as num?)?.toDouble(),
-      effectiveDate: json['effectiveDate'] as String?,
+      price: ((json['price'] ?? json['unitPrice']) as num?)?.toDouble(),
+      effectiveDate:
+          json['effectiveDate'] as String? ?? json['effectiveFrom'] as String?,
     );
   }
 
@@ -101,4 +111,36 @@ class ServicePrice {
         'price': price,
         'effectiveDate': effectiveDate,
       };
+}
+
+class ServicePriceRequest {
+  final int serviceId;
+  final double unitPrice;
+  final String effectiveFrom;
+  final String? effectiveTo;
+  final String? notes;
+
+  const ServicePriceRequest({
+    required this.serviceId,
+    required this.unitPrice,
+    required this.effectiveFrom,
+    this.effectiveTo,
+    this.notes,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'serviceId': serviceId,
+        'unitPrice': unitPrice,
+        'effectiveFrom': effectiveFrom,
+        if (effectiveTo != null) 'effectiveTo': effectiveTo,
+        if (notes != null) 'notes': notes,
+      };
+}
+
+String _chargeTypeFromServiceType(String? type) {
+  return switch (type) {
+    'ELECTRICITY' || 'WATER' => 'METERED',
+    'INTERNET' || 'CLEANING' || 'PARKING' => 'FIXED_PER_ROOM',
+    _ => 'FIXED_PER_ROOM',
+  };
 }

@@ -138,17 +138,17 @@ class TenantHomeScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(16),
                       margin: const EdgeInsets.only(bottom: 20),
                       decoration: BoxDecoration(
-                        color: AppColors.dangerLight,
+                        color: Theme.of(context).colorScheme.errorContainer.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppColors.danger.withAlpha(50),
+                          color: Theme.of(context).colorScheme.error.withOpacity(0.3),
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.warning_amber_rounded,
-                            color: AppColors.danger,
+                            color: Theme.of(context).colorScheme.error,
                             size: 28,
                           ),
                           const SizedBox(width: 12),
@@ -159,14 +159,15 @@ class TenantHomeScreen extends ConsumerWidget {
                                 Text(
                                   'Khoản nợ chưa thanh toán',
                                   style: AppTextStyles.titleSm.copyWith(
-                                    color: AppColors.danger,
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   'Tổng tiền nợ hiện tại: ${CurrencyFormatter.format(debt)}',
                                   style: AppTextStyles.bodyMd.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurface,
+                                    color: Theme.of(context).colorScheme.onErrorContainer,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

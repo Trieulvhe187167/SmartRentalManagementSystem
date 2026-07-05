@@ -74,4 +74,14 @@ public class ServiceItem extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     public RecordStatus status = RecordStatus.ACTIVE;
+    @Transient
+    public BigDecimal currentPrice;
+
+    public Boolean getActive() {
+        return status == RecordStatus.ACTIVE;
+    }
+
+    public String getType() {
+        return code;
+    }
 }

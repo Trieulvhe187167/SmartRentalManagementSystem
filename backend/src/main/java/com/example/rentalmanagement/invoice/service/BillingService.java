@@ -295,8 +295,8 @@ public class BillingService {
         return new InvoiceDetail(invoice, items.findByInvoiceIdAndIsDeletedFalseOrderByDisplayOrderAsc(id), payments.findByInvoiceIdAndStatus(id, PaymentStatus.CONFIRMED));
     }
 
-    public Page<Invoice> invoices(InvoiceStatus status, Integer month, Integer year, Pageable pageable) {
-        return invoices.search(status, month, year, pageable);
+    public Page<Invoice> invoices(InvoiceStatus status, Integer month, Integer year, Long tenantId, Pageable pageable) {
+        return invoices.search(status, month, year, tenantId, pageable);
     }
 
     @Transactional

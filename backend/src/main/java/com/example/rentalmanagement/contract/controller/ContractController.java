@@ -157,6 +157,11 @@ public class ContractController {
         return ApiResponse.success(contracts.inactiveService(id));
     }
 
+    @PutMapping({"/services/{id}/deactivate", "/services/{id}/activate"})
+    public ApiResponse<ServiceItem> setServiceActive(@PathVariable Long id, jakarta.servlet.http.HttpServletRequest request) {
+        return ApiResponse.success(contracts.setServiceActive(id, request.getRequestURI().endsWith("/activate")));
+    }
+
     @GetMapping("/services/{serviceId}/prices")
     public ApiResponse<PageResponse<ServicePrice>> servicePrices(@PathVariable Long serviceId, Pageable pageable) {
         return ApiResponse.success(PageResponse.from(contracts.servicePrices(serviceId, pageable)));

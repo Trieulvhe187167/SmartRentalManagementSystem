@@ -97,8 +97,10 @@ public class MaintenanceController {
     }
 
     @GetMapping("/admin/maintenance-requests")
-    public ApiResponse<PageResponse<MaintenanceRequestEntity>> adminRequests(@RequestParam(required = false) MaintenanceStatus status, Pageable pageable) {
-        return ApiResponse.success(PageResponse.from(maintenance.adminRequests(status, pageable)));
+    public ApiResponse<PageResponse<MaintenanceRequestEntity>> adminRequests(@RequestParam(required = false) MaintenanceStatus status,
+                                                                             @RequestParam(required = false) Long tenantId,
+                                                                             Pageable pageable) {
+        return ApiResponse.success(PageResponse.from(maintenance.adminRequests(status, tenantId, pageable)));
     }
 
     @GetMapping("/admin/maintenance-requests/{id}")

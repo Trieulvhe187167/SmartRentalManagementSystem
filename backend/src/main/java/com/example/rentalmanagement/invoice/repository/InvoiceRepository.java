@@ -76,10 +76,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
               and (:status is null or i.status = :status)
               and (:billingMonth is null or i.billingMonth = :billingMonth)
               and (:billingYear is null or i.billingYear = :billingYear)
+              and (:tenantId is null or i.tenantProfile.id = :tenantId)
             """)
     public Page<Invoice> search(@Param("status") InvoiceStatus status,
                                 @Param("billingMonth") Integer billingMonth,
                                 @Param("billingYear") Integer billingYear,
+                                @Param("tenantId") Long tenantId,
                                 Pageable pageable);
 
     @Query("""

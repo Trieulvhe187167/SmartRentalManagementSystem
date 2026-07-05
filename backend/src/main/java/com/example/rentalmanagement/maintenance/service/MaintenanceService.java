@@ -144,8 +144,8 @@ public class MaintenanceService {
         return request;
     }
 
-    public Page<MaintenanceRequestEntity> adminRequests(MaintenanceStatus status, Pageable pageable) {
-        return status == null ? requests.findAll(pageable) : requests.findByStatusAndIsDeletedFalse(status, pageable);
+    public Page<MaintenanceRequestEntity> adminRequests(MaintenanceStatus status, Long tenantId, Pageable pageable) {
+        return requests.search(status, tenantId, pageable);
     }
 
     public MaintenanceRequestEntity adminRequest(Long id) {

@@ -210,6 +210,23 @@ class AdminRepository {
     }
   }
 
+  // PUT /admin/rooms/{id}/status
+  Future<Room> updateRoomStatus(int id, String status) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.adminRooms}/$id/status',
+        data: {'status': status},
+      );
+      final apiResponse = ApiResponse<Room>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => Room.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
   // PUT /admin/rooms/{id}/available
   Future<void> activateRoom(int id) async {
     try {
@@ -357,6 +374,30 @@ class AdminRepository {
           if (status != null) 'status': status,
           if (sort != null) 'sort': sort,
         },
+      );
+      final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => json as Map<String, dynamic>,
+      );
+      return PageResponse<RentalContract>.fromJson(
+        apiResponse.data!,
+        (json) => RentalContract.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  // GET /admin/tenants/{id}/contracts
+  Future<PageResponse<RentalContract>> tenantContracts(
+    int tenantId, {
+    int page = 0,
+    int size = 20,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.adminTenants}/$tenantId/contracts',
+        queryParameters: {'page': page, 'size': size},
       );
       final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
         response.data as Map<String, dynamic>,
@@ -528,6 +569,7 @@ class AdminRepository {
     String? status,
     int? month,
     int? year,
+    int? tenantId,
   }) async {
     try {
       final response = await _dio.get(
@@ -538,6 +580,7 @@ class AdminRepository {
           if (status != null) 'status': status,
           if (month != null) 'month': month,
           if (year != null) 'year': year,
+          if (tenantId != null) 'tenantId': tenantId,
         },
       );
       final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
@@ -733,6 +776,7 @@ class AdminRepository {
     int page = 0,
     int size = 20,
     String? status,
+    int? tenantId,
   }) async {
     try {
       final response = await _dio.get(
@@ -741,6 +785,7 @@ class AdminRepository {
           'page': page,
           'size': size,
           if (status != null) 'status': status,
+          if (tenantId != null) 'tenantId': tenantId,
         },
       );
       final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
@@ -750,6 +795,30 @@ class AdminRepository {
       return PageResponse<MaintenanceRequest>.fromJson(
         apiResponse.data!,
         (json) => MaintenanceRequest.fromJson(json as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  // GET /admin/maintenance-requests/{id}/updates
+  Future<PageResponse<MaintenanceUpdate>> maintenanceUpdates(
+    int id, {
+    int page = 0,
+    int size = 50,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.adminMaintenanceRequests}/$id/updates',
+        queryParameters: {'page': page, 'size': size},
+      );
+      final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => json as Map<String, dynamic>,
+      );
+      return PageResponse<MaintenanceUpdate>.fromJson(
+        apiResponse.data!,
+        (json) => MaintenanceUpdate.fromJson(json as Map<String, dynamic>),
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -869,6 +938,73 @@ class AdminRepository {
       return page.content
           .where((service) => activeOnly == true ? service.active == true : true)
           .toList();
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  // POST /admin/services
+  Future<ServiceItem> createService(ServiceRequest req) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.adminServices,
+        data: req.toJson(),
+      );
+      final apiResponse = ApiResponse<ServiceItem>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => ServiceItem.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  // PUT /admin/services/{id}
+  Future<ServiceItem> updateService(int id, ServiceRequest req) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.adminServices}/$id',
+        data: req.toJson(),
+      );
+      final apiResponse = ApiResponse<ServiceItem>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => ServiceItem.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  // PUT /admin/services/{id}/activate|deactivate
+  Future<ServiceItem> setServiceActive(int id, bool active) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.adminServices}/$id/${active ? 'activate' : 'deactivate'}',
+      );
+      final apiResponse = ApiResponse<ServiceItem>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => ServiceItem.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  // POST /admin/service-prices
+  Future<ServicePrice> addServicePrice(ServicePriceRequest req) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.adminServicePrices,
+        data: req.toJson(),
+      );
+      final apiResponse = ApiResponse<ServicePrice>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => ServicePrice.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
     } on DioException catch (e) {
       throw e.error ?? e;
     }

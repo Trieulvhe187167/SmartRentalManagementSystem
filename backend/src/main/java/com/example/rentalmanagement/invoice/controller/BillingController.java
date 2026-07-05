@@ -118,8 +118,9 @@ public class BillingController {
     public ApiResponse<PageResponse<Invoice>> invoices(@RequestParam(required = false) InvoiceStatus status,
                                                        @RequestParam(required = false) Integer month,
                                                        @RequestParam(required = false) Integer year,
+                                                       @RequestParam(required = false) Long tenantId,
                                                        Pageable pageable) {
-        return ApiResponse.success(PageResponse.from(billing.invoices(status, month, year, pageable)));
+        return ApiResponse.success(PageResponse.from(billing.invoices(status, month, year, tenantId, pageable)));
     }
 
     @GetMapping("/admin/invoices/{id}")

@@ -65,4 +65,11 @@ import com.example.rentalmanagement.user.repository.*;
 public interface ServiceItemRepository extends JpaRepository<ServiceItem, Long> {
     public boolean existsByCode(String code);
     public Optional<ServiceItem> findByCode(String code);
+
+    @Query("""
+            select s from ServiceItem s
+            where s.isDeleted = false
+              and (:status is null or s.status = :status)
+            """)
+    public Page<ServiceItem> search(@Param("status") RecordStatus status, Pageable pageable);
 }

@@ -232,30 +232,39 @@ public class ContractManagementService {
     @Transactional
     public ServiceItem saveService(ServiceRequest request, Long id) {
         ServiceItem service = id == null ? new ServiceItem() : services.findById(id).orElseThrow(() -> new NotFoundException("Service not found", "SERVICE_NOT_FOUND"));
-        if (id == null && services.existsByCode(request.code())) {
+        String code = normalizeServiceCode(request.code(), request.name());
+        if (id == null && services.existsByCode(code)) {
             throw new BusinessException("Service code already exists", "SERVICE_CODE_EXISTS");
         }
-        service.code = request.code();
+        if (id != null && !service.code.equals(code) && services.existsByCode(code)) {
+            throw new BusinessException("Service code already exists", "SERVICE_CODE_EXISTS");
+        }
+        service.code = code;
         service.name = request.name();
         service.unit = request.unit();
         service.chargeType = request.chargeType();
         service.description = request.description();
         service.status = request.active() == null || request.active() ? RecordStatus.ACTIVE : RecordStatus.INACTIVE;
-        return services.save(service);
+        return enrichService(services.save(service));
     }
 
     public Page<ServiceItem> services(Pageable pageable) {
-        return services.findAll(pageable);
+        return services.search(null, pageable).map(this::enrichService);
     }
 
     public ServiceItem service(Long id) {
-        return services.findById(id).orElseThrow(() -> new NotFoundException("Service not found", "SERVICE_NOT_FOUND"));
+        return enrichService(services.findById(id).orElseThrow(() -> new NotFoundException("Service not found", "SERVICE_NOT_FOUND")));
     }
 
     @Transactional
     public ServiceItem inactiveService(Long id) {
+        return setServiceActive(id, false);
+    }
+
+    @Transactional
+    public ServiceItem setServiceActive(Long id, boolean active) {
         ServiceItem service = service(id);
-        service.status = RecordStatus.INACTIVE;
+        service.status = active ? RecordStatus.ACTIVE : RecordStatus.INACTIVE;
         return service;
     }
 
@@ -269,9 +278,15 @@ public class ContractManagementService {
         if (request.effectiveTo() != null && request.effectiveTo().isBefore(request.effectiveFrom())) {
             throw new BusinessException("Price effectiveTo must not be before effectiveFrom", "SERVICE_PRICE_INVALID_DATE");
         }
-        if (prices.overlaps(service.id, request.effectiveFrom(), effectiveTo)) {
-            throw new BusinessException("Price period overlaps existing price", "SERVICE_PRICE_OVERLAP");
-        }
+        prices.findEffective(service.id, request.effectiveFrom()).stream()
+                .filter(existing -> existing.effectiveTo == null || !existing.effectiveTo.isBefore(request.effectiveFrom()))
+                .forEach(existing -> {
+                    if (existing.effectiveFrom.isBefore(request.effectiveFrom())) {
+                        existing.effectiveTo = request.effectiveFrom().minusDays(1);
+                    } else {
+                        existing.isDeleted = true;
+                    }
+                });
         ServicePrice price = new ServicePrice();
         price.serviceItem = service;
         price.unitPrice = request.unitPrice();
@@ -279,6 +294,25 @@ public class ContractManagementService {
         price.effectiveTo = request.effectiveTo();
         price.notes = request.notes();
         return prices.save(price);
+    }
+
+    private ServiceItem enrichService(ServiceItem service) {
+        service.currentPrice = prices.findEffective(service.id, LocalDate.now()).stream()
+                .findFirst()
+                .map(price -> price.unitPrice)
+                .orElse(null);
+        return service;
+    }
+
+    private String normalizeServiceCode(String code, String name) {
+        String source = code == null || code.isBlank() ? name : code;
+        String normalized = source.trim().toUpperCase()
+                .replaceAll("[^A-Z0-9]+", "_")
+                .replaceAll("^_+|_+$", "");
+        if (normalized.isBlank()) {
+            throw new BusinessException("Service code is required", "SERVICE_CODE_REQUIRED", HttpStatus.BAD_REQUEST);
+        }
+        return normalized;
     }
 
     public Page<ServicePrice> servicePrices(Long serviceId, Pageable pageable) {

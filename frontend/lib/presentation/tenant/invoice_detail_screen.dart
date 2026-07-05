@@ -95,7 +95,7 @@ class TenantInvoiceDetailScreen extends ConsumerWidget {
 
                 // ─── Amount Summary Card ───────────────────
                 AppCard(
-                  backgroundColor: AppColors.surfaceContainerLow,
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
                   child: Column(
                     children: [
                       _buildSummaryRow('Tổng số tiền', CurrencyFormatter.format(invoice.totalAmount), isBold: true, valueColor: Theme.of(context).colorScheme.primary),
@@ -232,7 +232,7 @@ class TenantInvoiceDetailScreen extends ConsumerWidget {
                   Text('Hướng dẫn thanh toán', style: AppTextStyles.titleMd),
                   const SizedBox(height: 12),
                   AppCard(
-                    backgroundColor: AppColors.warningLight.withAlpha(120),
+                    backgroundColor: Theme.of(context).colorScheme.tertiaryContainer.withOpacity(0.15),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

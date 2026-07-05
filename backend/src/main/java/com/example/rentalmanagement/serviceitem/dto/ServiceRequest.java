@@ -57,5 +57,5 @@ import com.example.rentalmanagement.user.*;
 import com.example.rentalmanagement.user.dto.*;
 import com.example.rentalmanagement.user.repository.*;
 
-public record ServiceRequest(@NotBlank String code, @NotBlank String name, @NotBlank String unit, @NotNull ServiceChargeType chargeType, String description, Boolean active) {
+public record ServiceRequest(String code, @NotBlank String name, @NotBlank String unit, @NotNull ServiceChargeType chargeType, String description, Boolean active) {
 }
