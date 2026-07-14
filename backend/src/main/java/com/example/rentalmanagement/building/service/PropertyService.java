@@ -75,8 +75,9 @@ public class PropertyService {
     private final TenantProfileRepository tenants;
     private final OccupantRepository occupants;
     private final RentalContractRepository contracts;
+    private final InvoiceRepository invoices;
 
-    public PropertyService(BuildingRepository buildings, FloorRepository floors, RoomRepository rooms, UserRepository users, TenantProfileRepository tenants, OccupantRepository occupants, RentalContractRepository contracts) {
+    public PropertyService(BuildingRepository buildings, FloorRepository floors, RoomRepository rooms, UserRepository users, TenantProfileRepository tenants, OccupantRepository occupants, RentalContractRepository contracts, InvoiceRepository invoices) {
         this.buildings = buildings;
         this.floors = floors;
         this.rooms = rooms;
@@ -84,6 +85,7 @@ public class PropertyService {
         this.tenants = tenants;
         this.occupants = occupants;
         this.contracts = contracts;
+        this.invoices = invoices;
     }
 
     @Transactional
@@ -199,8 +201,24 @@ public class PropertyService {
         if (!"TENANT".equals(user.roleName())) {
             throw new BusinessException("User must have TENANT role", "USER_NOT_TENANT");
         }
-        if (id == null && tenants.existsByIdentityNumber(request.identityNumber())) {
-            throw new BusinessException("Identity number already exists", "TENANT_IDENTITY_EXISTS");
+        tenants.findByIdentityNumber(request.identityNumber())
+                .filter(existing -> id == null || !existing.id.equals(id))
+                .ifPresent(existing -> {
+                    throw new BusinessException("Identity number already exists", "TENANT_IDENTITY_EXISTS");
+                });
+        if (request.phone() != null && !request.phone().isBlank()) {
+            users.findByPhone(request.phone())
+                    .filter(existing -> !existing.id.equals(user.id))
+                    .ifPresent(existing -> {
+                        throw new BusinessException("Phone already exists", "USER_PHONE_EXISTS");
+                    });
+        }
+        if (request.email() != null && !request.email().isBlank()) {
+            users.findByEmail(request.email())
+                    .filter(existing -> !existing.id.equals(user.id))
+                    .ifPresent(existing -> {
+                        throw new BusinessException("Email already exists", "USER_EMAIL_EXISTS");
+                    });
         }
         t.user = user;
         t.fullName = request.fullName();
@@ -217,16 +235,74 @@ public class PropertyService {
         return tenants.save(t);
     }
 
-    public Page<TenantProfile> tenants(String keyword, Pageable pageable) {
-        return tenants.search(keyword, pageable);
+    public Page<TenantProfile> tenants(String keyword, boolean includeArchived, Pageable pageable) {
+        return tenants.search(keyword, includeArchived, pageable).map(this::withCurrentRoom);
     }
 
     public TenantProfile tenant(Long id) {
-        return tenants.findById(id).orElseThrow(() -> new NotFoundException("Tenant profile not found", "TENANT_NOT_FOUND"));
+        return withCurrentRoom(tenants.findById(id).orElseThrow(() -> new NotFoundException("Tenant profile not found", "TENANT_NOT_FOUND")));
     }
 
     public TenantProfile tenantProfileForUser(Long userId) {
-        return tenants.findByUserId(userId).orElseThrow(() -> new NotFoundException("Tenant profile not found", "TENANT_NOT_FOUND"));
+        return withCurrentRoom(tenants.findByUserId(userId).orElseThrow(() -> new NotFoundException("Tenant profile not found", "TENANT_NOT_FOUND")));
+    }
+
+    @Transactional
+    public TenantProfile archiveTenant(Long id) {
+        TenantProfile tenant = tenant(id);
+        tenant.status = RecordStatus.INACTIVE;
+        tenant.user.status = UserStatus.INACTIVE;
+        return tenant;
+    }
+
+    @Transactional
+    public TenantProfile restoreTenant(Long id) {
+        TenantProfile tenant = tenant(id);
+        tenant.status = RecordStatus.ACTIVE;
+        tenant.user.status = UserStatus.ACTIVE;
+        tenant.user.isDeleted = false;
+        tenant.user.deletedAt = null;
+        return tenant;
+    }
+
+    @Transactional
+    public void deleteTenant(Long id) {
+        TenantProfile tenant = tenant(id);
+        if (contracts.existsByPrimaryTenantIdAndIsDeletedFalse(id) || invoices.existsByTenantProfileIdAndIsDeletedFalse(id)) {
+            throw new BusinessException(
+                    "Cannot delete tenant with contracts or invoices. Archive the tenant instead.",
+                    "TENANT_HAS_HISTORY",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        User user = tenant.user;
+        tenants.delete(tenant);
+        if (user != null) {
+            user.status = UserStatus.INACTIVE;
+            user.isDeleted = true;
+            user.deletedAt = LocalDateTime.now();
+            user.phone = null;
+            user.email = null;
+            user.username = deletedUsername(user);
+        }
+    }
+
+    private String deletedUsername(User user) {
+        String base = user.username == null ? "user" : user.username;
+        String prefix = "deleted_" + user.id + "_";
+        int maxBaseLength = Math.max(0, 100 - prefix.length());
+        if (base.length() > maxBaseLength) {
+            base = base.substring(0, maxBaseLength);
+        }
+        return prefix + base;
+    }
+
+    private TenantProfile withCurrentRoom(TenantProfile tenant) {
+        contracts.findFirstByPrimaryTenantIdAndStatusAndIsDeletedFalse(tenant.id, ContractStatus.ACTIVE)
+                .map(contract -> contract.room)
+                .map(room -> room.roomNumber)
+                .ifPresent(roomNumber -> tenant.currentRoom = roomNumber);
+        return tenant;
     }
 
     @Transactional

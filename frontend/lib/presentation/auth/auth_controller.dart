@@ -11,11 +11,7 @@ class AuthState {
   final UserResponse? user;
   final String? error;
 
-  const AuthState({
-    this.status = AuthStatus.initial,
-    this.user,
-    this.error,
-  });
+  const AuthState({this.status = AuthStatus.initial, this.user, this.error});
 
   AuthState copyWith({AuthStatus? status, UserResponse? user, String? error}) {
     return AuthState(
@@ -32,13 +28,27 @@ class AuthState {
 }
 
 // ─── Repository provider ─────────────────────────────────
-final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository.instance);
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepository.instance,
+);
 
 // ─── Controller ──────────────────────────────────────────
 class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _repository;
 
-  AuthController(this._repository) : super(const AuthState());
+  AuthController(this._repository) : super(const AuthState()) {
+    ApiClient.sessionNotifier.addListener(_handleSessionExpired);
+  }
+
+  void _handleSessionExpired() {
+    state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  @override
+  void dispose() {
+    ApiClient.sessionNotifier.removeListener(_handleSessionExpired);
+    super.dispose();
+  }
 
   /// Check token and load user on app start
   Future<AuthCheckResult> checkAuth() async {
@@ -52,7 +62,9 @@ class AuthController extends StateNotifier<AuthState> {
       final user = await _repository.me();
       await ApiClient.saveRole(user.role ?? '');
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
-      return user.role == 'ADMIN' ? AuthCheckResult.admin : AuthCheckResult.tenant;
+      return user.role == 'ADMIN'
+          ? AuthCheckResult.admin
+          : AuthCheckResult.tenant;
     } catch (e) {
       await ApiClient.clearAuth();
       state = state.copyWith(status: AuthStatus.unauthenticated);
@@ -70,10 +82,7 @@ class AuthController extends StateNotifier<AuthState> {
       await ApiClient.saveRole(response.user?.role ?? '');
       final user = await _repository.me();
       await ApiClient.saveRole(user.role ?? '');
-      state = state.copyWith(
-        status: AuthStatus.authenticated,
-        user: user,
-      );
+      state = state.copyWith(status: AuthStatus.authenticated, user: user);
       return LoginResult.success(role: user.role ?? '');
     } on ApiException catch (e) {
       state = state.copyWith(status: AuthStatus.error, error: e.message);
@@ -92,11 +101,13 @@ class AuthController extends StateNotifier<AuthState> {
     required String confirmPassword,
   }) async {
     try {
-      await _repository.changePassword(ChangePasswordRequest(
-        currentPassword: currentPassword,
-        newPassword: newPassword,
-        confirmPassword: confirmPassword,
-      ));
+      await _repository.changePassword(
+        ChangePasswordRequest(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+          confirmPassword: confirmPassword,
+        ),
+      );
       return null; // success
     } on ApiException catch (e) {
       return e.message;
@@ -107,14 +118,21 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<ForgotPasswordResult> forgotPassword(String usernameOrEmail) async {
     try {
-      final response = await _repository.forgotPassword(
+      await _repository.forgotPassword(
         ForgotPasswordRequest(usernameOrEmail: usernameOrEmail),
       );
-      return ForgotPasswordResult.success(
-        resetToken: response.resetToken,
-        expiresAt: response.expiresAt,
-      );
+      return ForgotPasswordResult.success();
     } on ApiException catch (e) {
+      if (e.errorCode == 'PASSWORD_RESET_ACCOUNT_NOT_FOUND') {
+        return ForgotPasswordResult.failure(
+          'Không tìm thấy tài khoản hoặc email đã đăng ký.',
+        );
+      }
+      if (e.errorCode == 'PASSWORD_RESET_EMAIL_MISSING') {
+        return ForgotPasswordResult.failure(
+          'Tài khoản chưa có email để nhận hướng dẫn đặt lại mật khẩu.',
+        );
+      }
       return ForgotPasswordResult.failure(e.message);
     } catch (e) {
       return ForgotPasswordResult.failure(
@@ -155,9 +173,11 @@ class AuthController extends StateNotifier<AuthState> {
 }
 
 // ─── Auth controller provider ─────────────────────────────
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>((ref) {
-  return AuthController(ref.watch(authRepositoryProvider));
-});
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+  (ref) {
+    return AuthController(ref.watch(authRepositoryProvider));
+  },
+);
 
 // ─── Result types ────────────────────────────────────────
 enum AuthCheckResult { notLoggedIn, admin, tenant }
@@ -182,25 +202,11 @@ class LoginResult {
 class ForgotPasswordResult {
   final bool success;
   final String? error;
-  final String? resetToken;
-  final String? expiresAt;
 
-  const ForgotPasswordResult._({
-    required this.success,
-    this.error,
-    this.resetToken,
-    this.expiresAt,
-  });
+  const ForgotPasswordResult._({required this.success, this.error});
 
-  factory ForgotPasswordResult.success({
-    String? resetToken,
-    String? expiresAt,
-  }) =>
-      ForgotPasswordResult._(
-        success: true,
-        resetToken: resetToken,
-        expiresAt: expiresAt,
-      );
+  factory ForgotPasswordResult.success() =>
+      const ForgotPasswordResult._(success: true);
 
   factory ForgotPasswordResult.failure(String error) =>
       ForgotPasswordResult._(success: false, error: error);

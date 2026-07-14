@@ -19,6 +19,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.persistence.EntityManager;
+import com.example.rentalmanagement.auth.PasswordResetToken;
+import com.example.rentalmanagement.auth.repository.PasswordResetTokenRepository;
 import com.example.rentalmanagement.common.api.*;
 import com.example.rentalmanagement.common.audit.*;
 import com.example.rentalmanagement.common.enums.*;
@@ -76,33 +78,53 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokens;
     private final CurrentUser currentUser;
+    private final PasswordResetTokenRepository passwordResetTokens;
+    private final PasswordResetDeliveryService passwordResetDelivery;
     private final java.security.SecureRandom secureRandom = new java.security.SecureRandom();
-    private final java.util.concurrent.ConcurrentMap<String, PasswordResetToken> passwordResetTokens = new java.util.concurrent.ConcurrentHashMap<>();
 
-    public AuthService(UserRepository users, RoleRepository roles, TenantProfileRepository tenantProfiles, PasswordEncoder passwordEncoder, JwtTokenProvider tokens, CurrentUser currentUser) {
+    public AuthService(
+            UserRepository users,
+            RoleRepository roles,
+            TenantProfileRepository tenantProfiles,
+            PasswordEncoder passwordEncoder,
+            JwtTokenProvider tokens,
+            CurrentUser currentUser,
+            PasswordResetTokenRepository passwordResetTokens,
+            PasswordResetDeliveryService passwordResetDelivery
+    ) {
         this.users = users;
         this.roles = roles;
         this.tenantProfiles = tenantProfiles;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
         this.currentUser = currentUser;
+        this.passwordResetTokens = passwordResetTokens;
+        this.passwordResetDelivery = passwordResetDelivery;
     }
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
         User user = users.findByUsername(request.username())
                 .orElseThrow(() -> new UnauthorizedException("Username or password is incorrect", "AUTH_INVALID_CREDENTIALS"));
-        if (user.status == UserStatus.LOCKED) {
+        if (user.getStatus() == UserStatus.LOCKED) {
             throw new UnauthorizedException("Account is locked", "AUTH_ACCOUNT_LOCKED");
         }
-        if (user.status == UserStatus.INACTIVE) {
+        if (user.getStatus() == UserStatus.INACTIVE) {
             throw new UnauthorizedException("Account is inactive", "AUTH_ACCOUNT_INACTIVE");
         }
-        if (!passwordEncoder.matches(request.password(), user.passwordHash)) {
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new UnauthorizedException("Username or password is incorrect", "AUTH_INVALID_CREDENTIALS");
         }
-        user.lastLoginAt = LocalDateTime.now();
-        return new LoginResponse(tokens.generate(user), "Bearer", tokens.expiresInSeconds(), user.id, user.username, user.roleName(), user.mustChangePassword);
+        user.setLastLoginAt(LocalDateTime.now());
+        return new LoginResponse(
+                tokens.generate(user),
+                "Bearer",
+                tokens.expiresInSeconds(),
+                user.getId(),
+                user.getUsername(),
+                user.roleName(),
+                user.isMustChangePassword()
+        );
     }
 
     public UserResponse me() {
@@ -111,21 +133,27 @@ public class AuthService {
         return UserResponse.from(user, profile);
     }
 
-    public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
         cleanupExpiredPasswordResetTokens();
-        Optional<User> found = findUserForPasswordReset(request.usernameOrEmail());
-        if (found.isEmpty()) {
-            return new ForgotPasswordResponse(null, null);
+        User user = findUserForPasswordReset(request.usernameOrEmail())
+                .orElseThrow(() -> new NotFoundException("Account or email was not found", "PASSWORD_RESET_ACCOUNT_NOT_FOUND"));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new BusinessException(
+                    "Account is not active",
+                    "PASSWORD_RESET_ACCOUNT_INACTIVE",
+                    HttpStatus.BAD_REQUEST
+            );
         }
-        User user = found.get();
-        if (user.status != UserStatus.ACTIVE) {
-            return new ForgotPasswordResponse(null, null);
-        }
-        String token = generatePasswordResetToken();
-        LocalDateTime expiresAt = LocalDateTime.now().plus(PASSWORD_RESET_TTL);
-        passwordResetTokens.entrySet().removeIf(entry -> entry.getValue().userId().equals(user.id));
-        passwordResetTokens.put(token, new PasswordResetToken(user.id, expiresAt));
-        return new ForgotPasswordResponse(token, expiresAt);
+        String rawToken = generatePasswordResetToken();
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.user = user;
+        resetToken.tokenHash = hashPasswordResetToken(rawToken);
+        resetToken.expiresAt = LocalDateTime.now().plus(PASSWORD_RESET_TTL);
+
+        passwordResetTokens.deleteActiveByUserId(user.getId());
+        passwordResetTokens.save(resetToken);
+        passwordResetDelivery.send(user, rawToken);
     }
 
     @Transactional
@@ -134,19 +162,34 @@ public class AuthService {
         if (!request.newPassword().equals(request.confirmPassword())) {
             throw new BusinessException("Confirm password does not match", "PASSWORD_CONFIRM_MISMATCH", HttpStatus.BAD_REQUEST);
         }
-        PasswordResetToken resetToken = passwordResetTokens.get(request.token());
-        if (resetToken == null || resetToken.expiresAt().isBefore(LocalDateTime.now())) {
-            passwordResetTokens.remove(request.token());
+        validatePasswordPolicy(request.newPassword());
+        PasswordResetToken resetToken = passwordResetTokens
+                .findByTokenHash(hashPasswordResetToken(request.token()))
+                .orElseThrow(() -> new BusinessException(
+                        "Password reset token is invalid or expired",
+                        "PASSWORD_RESET_TOKEN_INVALID",
+                        HttpStatus.BAD_REQUEST
+                ));
+        if (resetToken.usedAt != null || resetToken.expiresAt.isBefore(LocalDateTime.now())) {
             throw new BusinessException("Password reset token is invalid or expired", "PASSWORD_RESET_TOKEN_INVALID", HttpStatus.BAD_REQUEST);
         }
-        User user = users.findById(resetToken.userId())
+        User user = users.findById(resetToken.user.getId())
                 .orElseThrow(() -> new NotFoundException("User not found", "USER_NOT_FOUND"));
-        if (user.status != UserStatus.ACTIVE) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
             throw new UnauthorizedException("Account is not active", "AUTH_ACCOUNT_INACTIVE");
         }
-        user.passwordHash = passwordEncoder.encode(request.newPassword());
-        user.mustChangePassword = false;
-        passwordResetTokens.remove(request.token());
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new BusinessException(
+                    "New password must be different from the current password",
+                    "PASSWORD_MUST_BE_DIFFERENT",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setMustChangePassword(false);
+        resetToken.usedAt = LocalDateTime.now();
+        passwordResetTokens.saveAndFlush(resetToken);
+        passwordResetTokens.deleteActiveByUserId(user.id);
     }
 
     @Transactional
@@ -154,12 +197,20 @@ public class AuthService {
         if (!request.newPassword().equals(request.confirmPassword())) {
             throw new BusinessException("Confirm password does not match", "PASSWORD_CONFIRM_MISMATCH", HttpStatus.BAD_REQUEST);
         }
+        validatePasswordPolicy(request.newPassword());
         User user = users.findById(currentUser.userId()).orElseThrow();
-        if (!passwordEncoder.matches(request.oldPassword(), user.passwordHash)) {
+        if (!passwordEncoder.matches(request.oldPassword(), user.getPasswordHash())) {
             throw new UnauthorizedException("Old password is incorrect", "AUTH_INVALID_CREDENTIALS");
         }
-        user.passwordHash = passwordEncoder.encode(request.newPassword());
-        user.mustChangePassword = false;
+        if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+            throw new BusinessException(
+                    "New password must be different from the current password",
+                    "PASSWORD_MUST_BE_DIFFERENT",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        user.setMustChangePassword(false);
     }
 
     @Transactional
@@ -205,6 +256,19 @@ public class AuthService {
         return UserResponse.from(user);
     }
 
+    @Transactional
+    public UserResponse updateUsername(Long id, UpdateUsernameRequest request) {
+        User user = users.findById(id).orElseThrow(() -> new NotFoundException("User not found", "USER_NOT_FOUND"));
+        String username = request.username().trim();
+        users.findByUsername(username)
+                .filter(existing -> !existing.id.equals(user.id))
+                .ifPresent(existing -> {
+                    throw new BusinessException("Username already exists", "USER_USERNAME_EXISTS");
+                });
+        user.username = username;
+        return UserResponse.from(user);
+    }
+
     private Optional<User> findUserForPasswordReset(String usernameOrEmail) {
         String value = usernameOrEmail == null ? "" : usernameOrEmail.trim();
         if (value.isEmpty()) {
@@ -223,11 +287,30 @@ public class AuthService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
-    private void cleanupExpiredPasswordResetTokens() {
-        LocalDateTime now = LocalDateTime.now();
-        passwordResetTokens.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
+    private String hashPasswordResetToken(String rawToken) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(rawToken.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is not available", ex);
+        }
     }
 
-    private record PasswordResetToken(Long userId, LocalDateTime expiresAt) {
+    private void validatePasswordPolicy(String password) {
+        boolean validLength = password != null && password.length() >= 8 && password.length() <= 72;
+        boolean hasLetter = password != null && password.codePoints().anyMatch(Character::isLetter);
+        boolean hasDigit = password != null && password.codePoints().anyMatch(Character::isDigit);
+        if (!validLength || !hasLetter || !hasDigit) {
+            throw new BusinessException(
+                    "Password must be 8-72 characters and contain at least one letter and one number",
+                    "PASSWORD_POLICY_INVALID",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+    }
+
+    private void cleanupExpiredPasswordResetTokens() {
+        passwordResetTokens.deleteByExpiresAtBefore(LocalDateTime.now());
     }
 }

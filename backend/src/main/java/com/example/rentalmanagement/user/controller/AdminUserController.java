@@ -95,4 +95,9 @@ public class AdminUserController {
     public ApiResponse<UserResponse> reset(@PathVariable Long id, @Valid @RequestBody ResetPasswordRequest request) {
         return ApiResponse.success(auth.resetPassword(id, request));
     }
+
+    @PutMapping("/{id}/username")
+    public ApiResponse<UserResponse> updateUsername(@PathVariable Long id, @Valid @RequestBody UpdateUsernameRequest request) {
+        return ApiResponse.success(auth.updateUsername(id, request));
+    }
 }

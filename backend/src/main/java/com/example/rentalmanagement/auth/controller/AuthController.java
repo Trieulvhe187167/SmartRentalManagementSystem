@@ -76,8 +76,9 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ApiResponse<ForgotPasswordResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        return ApiResponse.success("If the account exists, password reset instructions have been created.", auth.forgotPassword(request));
+    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        auth.forgotPassword(request);
+        return ApiResponse.success("Password reset instructions have been sent.", null);
     }
 
     @PostMapping("/reset-password")

@@ -112,12 +112,12 @@ public class JwtTokenProvider {
         Instant expiry = now.plusSeconds(expiresInSeconds());
         return Jwts.builder()
                 .issuer(issuer)
-                .subject(user.username)
+                .subject(user.getUsername())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))
-                .claim("userId", user.id)
+                .claim("userId", user.getId())
                 .claim("role", user.roleName())
-                .claim("status", user.status.name())
+                .claim("status", user.getStatus().name())
                 .claim("mustChangePassword", user.mustChangePassword)
                 .signWith(key)
                 .compact();

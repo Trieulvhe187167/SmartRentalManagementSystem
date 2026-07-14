@@ -10,6 +10,7 @@ import java.io.*;
 import javax.crypto.*;
 
 import jakarta.validation.constraints.*;
+import com.example.rentalmanagement.auth.validation.ValidPassword;
 import com.example.rentalmanagement.common.api.*;
 import com.example.rentalmanagement.common.audit.*;
 import com.example.rentalmanagement.common.enums.*;
@@ -59,7 +60,7 @@ import com.example.rentalmanagement.user.repository.*;
 
 public record CreateTenantAccountRequest(
         @NotBlank @Size(max = 100) String username,
-        @NotBlank @Size(min = 8, max = 72) String temporaryPassword,
+        @NotBlank @ValidPassword String temporaryPassword,
         @Size(max = 150) String fullName,
         String phone,
         @Email String email

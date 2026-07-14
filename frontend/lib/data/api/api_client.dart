@@ -1,6 +1,11 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/constants/api_constants.dart';
+
+class AuthSessionNotifier extends ChangeNotifier {
+  void sessionExpired() => notifyListeners();
+}
 
 /// Custom exception to carry structured error from server
 class ApiException implements Exception {
@@ -44,23 +49,26 @@ class ApiClient {
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
+  static final AuthSessionNotifier sessionNotifier = AuthSessionNotifier();
 
   late final Dio _dio = _buildDio();
 
   Dio get dio => _dio;
 
   Dio _buildDio() {
-    final dio = Dio(BaseOptions(
-      baseUrl: ApiConstants.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    ));
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: ApiConstants.baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
 
-    dio.interceptors.add(_AuthInterceptor(_storage, dio));
+    dio.interceptors.add(_AuthInterceptor(_storage));
     dio.interceptors.add(_ErrorInterceptor());
 
     // Optional: log in debug mode
@@ -98,6 +106,11 @@ class ApiClient {
     await _storage.delete(key: ApiConstants.userRoleKey);
   }
 
+  static Future<void> expireSession() async {
+    await clearAuth();
+    sessionNotifier.sessionExpired();
+  }
+
   /// Check if user is logged in
   static Future<bool> isLoggedIn() async {
     final token = await getToken();
@@ -108,12 +121,14 @@ class ApiClient {
 /// Interceptor: automatically attach JWT Bearer token to every request
 class _AuthInterceptor extends Interceptor {
   final FlutterSecureStorage _storage;
-  final Dio _dio;
 
-  _AuthInterceptor(this._storage, this._dio);
+  _AuthInterceptor(this._storage);
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     final token = await _storage.read(key: ApiConstants.tokenKey);
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
@@ -125,8 +140,7 @@ class _AuthInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     // If 401 → clear token (don't retry, let router redirect to login)
     if (err.response?.statusCode == 401) {
-      await _storage.delete(key: ApiConstants.tokenKey);
-      await _storage.delete(key: ApiConstants.userRoleKey);
+      await ApiClient.expireSession();
     }
     super.onError(err, handler);
   }

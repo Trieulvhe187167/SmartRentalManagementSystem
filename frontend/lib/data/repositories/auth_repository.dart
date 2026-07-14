@@ -43,19 +43,9 @@ class AuthRepository {
   }
 
   // POST /auth/forgot-password
-  Future<ForgotPasswordResponse> forgotPassword(
-      ForgotPasswordRequest request) async {
+  Future<void> forgotPassword(ForgotPasswordRequest request) async {
     try {
-      final response = await _dio.post(
-        ApiConstants.forgotPassword,
-        data: request.toJson(),
-      );
-      final apiResponse = ApiResponse<ForgotPasswordResponse>.fromJson(
-        response.data as Map<String, dynamic>,
-        (json) =>
-            ForgotPasswordResponse.fromJson(json as Map<String, dynamic>),
-      );
-      return apiResponse.data ?? const ForgotPasswordResponse();
+      await _dio.post(ApiConstants.forgotPassword, data: request.toJson());
     } on DioException catch (e) {
       throw e.error ?? e;
     }
@@ -63,12 +53,10 @@ class AuthRepository {
 
   // POST /auth/reset-password
   Future<void> resetForgottenPassword(
-      ResetForgottenPasswordRequest request) async {
+    ResetForgottenPasswordRequest request,
+  ) async {
     try {
-      await _dio.post(
-        ApiConstants.resetPassword,
-        data: request.toJson(),
-      );
+      await _dio.post(ApiConstants.resetPassword, data: request.toJson());
     } on DioException catch (e) {
       throw e.error ?? e;
     }
@@ -77,10 +65,7 @@ class AuthRepository {
   // PUT /auth/change-password
   Future<void> changePassword(ChangePasswordRequest request) async {
     try {
-      await _dio.put(
-        ApiConstants.changePassword,
-        data: request.toJson(),
-      );
+      await _dio.put(ApiConstants.changePassword, data: request.toJson());
     } on DioException catch (e) {
       throw e.error ?? e;
     }

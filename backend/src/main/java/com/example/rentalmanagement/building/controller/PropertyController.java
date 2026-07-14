@@ -186,8 +186,10 @@ public class PropertyController {
     }
 
     @GetMapping("/tenants")
-    public ApiResponse<PageResponse<TenantProfile>> tenants(@RequestParam(required = false) String keyword, Pageable pageable) {
-        return ApiResponse.success(PageResponse.from(property.tenants(keyword, pageable)));
+    public ApiResponse<PageResponse<TenantProfile>> tenants(@RequestParam(required = false) String keyword,
+                                                            @RequestParam(defaultValue = "false") boolean includeArchived,
+                                                            Pageable pageable) {
+        return ApiResponse.success(PageResponse.from(property.tenants(keyword, includeArchived, pageable)));
     }
 
     @GetMapping("/tenants/{id}")
@@ -198,6 +200,22 @@ public class PropertyController {
     @PutMapping("/tenants/{id}")
     public ApiResponse<TenantProfile> updateTenant(@PathVariable Long id, @Valid @RequestBody TenantProfileRequest request) {
         return ApiResponse.success(property.saveTenant(request, id));
+    }
+
+    @PutMapping("/tenants/{id}/archive")
+    public ApiResponse<TenantProfile> archiveTenant(@PathVariable Long id) {
+        return ApiResponse.success(property.archiveTenant(id));
+    }
+
+    @PutMapping("/tenants/{id}/restore")
+    public ApiResponse<TenantProfile> restoreTenant(@PathVariable Long id) {
+        return ApiResponse.success(property.restoreTenant(id));
+    }
+
+    @DeleteMapping("/tenants/{id}")
+    public ApiResponse<Void> deleteTenant(@PathVariable Long id) {
+        property.deleteTenant(id);
+        return ApiResponse.success(null);
     }
 
     @GetMapping("/tenants/{id}/contracts")

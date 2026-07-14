@@ -13,47 +13,68 @@ import '../shared/widgets/app_card.dart';
 import '../shared/widgets/status_chip.dart';
 import '../shared/widgets/loading_shimmer.dart';
 import '../shared/widgets/empty_state.dart';
+import 'admin_controller.dart';
+import 'tenant_form_sheet.dart';
 
-final adminTenantDetailProvider = FutureProvider.family<TenantProfile, int>((ref, id) async {
+final adminTenantDetailProvider = FutureProvider.family<TenantProfile, int>((
+  ref,
+  id,
+) async {
   return AdminRepository.instance.tenant(id);
 });
 
-final adminTenantInvoicesProvider = FutureProvider.family<List<Invoice>, int>((ref, tenantId) async {
+final adminTenantInvoicesProvider = FutureProvider.family<List<Invoice>, int>((
+  ref,
+  tenantId,
+) async {
   try {
-    final res = await AdminRepository.instance.invoices(size: 5, tenantId: tenantId);
+    final res = await AdminRepository.instance.invoices(
+      size: 5,
+      tenantId: tenantId,
+    );
     return res.content;
   } catch (_) {
     return const [];
   }
 });
 
-final adminTenantMaintenanceProvider = FutureProvider.family<List<MaintenanceRequest>, int>((ref, tenantId) async {
-  try {
-    final res = await AdminRepository.instance.maintenanceRequests(size: 5, tenantId: tenantId);
-    return res.content;
-  } catch (_) {
-    return const [];
-  }
-});
+final adminTenantMaintenanceProvider =
+    FutureProvider.family<List<MaintenanceRequest>, int>((ref, tenantId) async {
+      try {
+        final res = await AdminRepository.instance.maintenanceRequests(
+          size: 5,
+          tenantId: tenantId,
+        );
+        return res.content;
+      } catch (_) {
+        return const [];
+      }
+    });
 
-final adminTenantContractsProvider = FutureProvider.family<List<RentalContract>, int>((ref, tenantId) async {
-  try {
-    final res = await AdminRepository.instance.tenantContracts(tenantId, size: 5);
-    return res.content;
-  } catch (_) {
-    return const [];
-  }
-});
+final adminTenantContractsProvider =
+    FutureProvider.family<List<RentalContract>, int>((ref, tenantId) async {
+      try {
+        final res = await AdminRepository.instance.tenantContracts(
+          tenantId,
+          size: 5,
+        );
+        return res.content;
+      } catch (_) {
+        return const [];
+      }
+    });
 
 class AdminTenantDetailScreen extends ConsumerStatefulWidget {
   final int tenantId;
   const AdminTenantDetailScreen({super.key, required this.tenantId});
 
   @override
-  ConsumerState<AdminTenantDetailScreen> createState() => _AdminTenantDetailScreenState();
+  ConsumerState<AdminTenantDetailScreen> createState() =>
+      _AdminTenantDetailScreenState();
 }
 
-class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScreen> {
+class _AdminTenantDetailScreenState
+    extends ConsumerState<AdminTenantDetailScreen> {
   bool _isDeactivating = false;
 
   Future<void> _deactivateTenant() async {
@@ -61,7 +82,9 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xác nhận vô hiệu hoá'),
-        content: const Text('Bạn có chắc chắn muốn vô hiệu hoá tài khoản khách thuê này không? Người dùng sẽ không thể đăng nhập vào hệ thống.'),
+        content: const Text(
+          'Bạn có chắc chắn muốn vô hiệu hoá tài khoản khách thuê này không? Người dùng sẽ không thể đăng nhập vào hệ thống.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -84,7 +107,10 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
       ref.invalidate(adminTenantDetailProvider(widget.tenantId));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã vô hiệu hoá tài khoản khách thuê'), backgroundColor: AppColors.success),
+          const SnackBar(
+            content: Text('Đã vô hiệu hoá tài khoản khách thuê'),
+            backgroundColor: AppColors.success,
+          ),
         );
       }
     } catch (e) {
@@ -98,12 +124,53 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
     }
   }
 
+  Future<void> _showEditTenantSheet(TenantProfile tenant) async {
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return TenantEditFormSheet(
+          tenant: tenant,
+          onSubmit: (req) async {
+            try {
+              await AdminRepository.instance.updateTenant(widget.tenantId, req);
+              ref.invalidate(adminTenantDetailProvider(widget.tenantId));
+              ref.invalidate(adminTenantsProvider);
+              return null;
+            } catch (e) {
+              return e.toString();
+            }
+          },
+        );
+      },
+    );
+
+    if (updated == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cập nhật thông tin khách thuê thành công'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tenantAsync = ref.watch(adminTenantDetailProvider(widget.tenantId));
-    final invoicesAsync = ref.watch(adminTenantInvoicesProvider(widget.tenantId));
-    final maintenanceAsync = ref.watch(adminTenantMaintenanceProvider(widget.tenantId));
-    final contractsAsync = ref.watch(adminTenantContractsProvider(widget.tenantId));
+    final invoicesAsync = ref.watch(
+      adminTenantInvoicesProvider(widget.tenantId),
+    );
+    final maintenanceAsync = ref.watch(
+      adminTenantMaintenanceProvider(widget.tenantId),
+    );
+    final contractsAsync = ref.watch(
+      adminTenantContractsProvider(widget.tenantId),
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -117,9 +184,18 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
             icon: const Icon(Icons.more_vert, color: Colors.white),
             onSelected: (value) {
               if (value == 'edit') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Tính năng chỉnh sửa đang phát triển')),
-                );
+                final tenant = ref
+                    .read(adminTenantDetailProvider(widget.tenantId))
+                    .valueOrNull;
+                if (tenant == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Chưa tải xong thông tin khách thuê'),
+                    ),
+                  );
+                  return;
+                }
+                _showEditTenantSheet(tenant);
               } else if (value == 'deactivate') {
                 _deactivateTenant();
               }
@@ -141,7 +217,10 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                   children: [
                     Icon(Icons.block, size: 20, color: AppColors.danger),
                     const SizedBox(width: 8),
-                    Text('Vô hiệu hoá', style: TextStyle(color: AppColors.danger)),
+                    Text(
+                      'Vô hiệu hoá',
+                      style: TextStyle(color: AppColors.danger),
+                    ),
                   ],
                 ),
               ),
@@ -153,11 +232,18 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
         loading: () => const PageLoading(),
         error: (err, stack) => ErrorState(
           message: 'Không thể tải thông tin khách thuê: $err',
-          onRetry: () => ref.invalidate(adminTenantDetailProvider(widget.tenantId)),
+          onRetry: () =>
+              ref.invalidate(adminTenantDetailProvider(widget.tenantId)),
         ),
         data: (tenant) {
-          final initials = tenant.fullName != null && tenant.fullName!.isNotEmpty
-              ? tenant.fullName!.trim().split(' ').last.substring(0, 1).toUpperCase()
+          final initials =
+              tenant.fullName != null && tenant.fullName!.isNotEmpty
+              ? tenant.fullName!
+                    .trim()
+                    .split(' ')
+                    .last
+                    .substring(0, 1)
+                    .toUpperCase()
               : 'U';
 
           return Stack(
@@ -179,7 +265,10 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                           end: Alignment.bottomCenter,
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 28,
+                      ),
                       child: Row(
                         children: [
                           CircleAvatar(
@@ -211,7 +300,10 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 3,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: tenant.active == true
                                             ? Colors.green.withOpacity(0.2)
@@ -219,20 +311,33 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        tenant.active == true ? 'Đang hoạt động' : 'Vô hiệu hóa',
+                                        tenant.active == true
+                                            ? 'Đang hoạt động'
+                                            : 'Vô hiệu hóa',
                                         style: TextStyle(
-                                          color: tenant.active == true ? Colors.green[300] : Colors.red[300],
+                                          color: tenant.active == true
+                                              ? Colors.green[300]
+                                              : Colors.red[300],
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
-                                    const Icon(Icons.room, size: 16, color: Colors.white70),
+                                    const Icon(
+                                      Icons.room,
+                                      size: 16,
+                                      color: Colors.white70,
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      tenant.currentRoom != null ? 'Phòng ${tenant.currentRoom}' : 'Chưa nhận phòng',
-                                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                                      tenant.currentRoom != null
+                                          ? 'Phòng ${tenant.currentRoom}'
+                                          : 'Chưa nhận phòng',
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -255,11 +360,72 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                             title: 'Thông tin cá nhân',
                             child: Column(
                               children: [
-                                _infoRow(context, Icons.email, 'Email', tenant.email ?? '-'),
-                                _infoRow(context, Icons.phone, 'Số điện thoại', tenant.phone ?? '-'),
-                                _infoRow(context, Icons.badge, 'CMND/CCCD', tenant.idNumber ?? '-'),
-                                _infoRow(context, Icons.credit_card, 'Loại giấy tờ', tenant.idType ?? 'CCCD'),
-                                _infoRow(context, Icons.location_on, 'Địa chỉ', tenant.address ?? '-'),
+                                _infoRow(
+                                  context,
+                                  Icons.email,
+                                  'Email',
+                                  tenant.email ?? '-',
+                                ),
+                                _infoRow(
+                                  context,
+                                  Icons.phone,
+                                  'Số điện thoại',
+                                  tenant.phone ?? '-',
+                                ),
+                                _infoRow(
+                                  context,
+                                  Icons.cake,
+                                  'Ngày sinh',
+                                  tenant.dateOfBirth != null
+                                      ? DateFormatter.format(
+                                          DateFormatter.tryParse(
+                                            tenant.dateOfBirth,
+                                          ),
+                                        )
+                                      : '-',
+                                ),
+                                _infoRow(
+                                  context,
+                                  Icons.badge,
+                                  'CMND/CCCD',
+                                  tenant.idNumber ?? '-',
+                                ),
+                                _infoRow(
+                                  context,
+                                  Icons.event_note,
+                                  'Ngày cấp',
+                                  tenant.identityIssuedDate != null
+                                      ? DateFormatter.format(
+                                          DateFormatter.tryParse(
+                                            tenant.identityIssuedDate,
+                                          ),
+                                        )
+                                      : '-',
+                                ),
+                                _infoRow(
+                                  context,
+                                  Icons.location_city,
+                                  'Nơi cấp',
+                                  tenant.identityIssuedPlace ?? '-',
+                                ),
+                                _infoRow(
+                                  context,
+                                  Icons.contact_phone,
+                                  'Liên hệ khẩn cấp',
+                                  _emergencyContactText(tenant),
+                                ),
+                                _infoRow(
+                                  context,
+                                  Icons.credit_card,
+                                  'Loại giấy tờ',
+                                  tenant.idType ?? 'CCCD',
+                                ),
+                                _infoRow(
+                                  context,
+                                  Icons.location_on,
+                                  'Địa chỉ',
+                                  tenant.address ?? '-',
+                                ),
                               ],
                             ),
                           ),
@@ -272,7 +438,8 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                             title: 'Hợp đồng hiện tại',
                             child: contractsAsync.when(
                               loading: () => const CardShimmer(),
-                              error: (e, _) => const Text('Không thể tải hợp đồng hiện tại'),
+                              error: (e, _) =>
+                                  const Text('Không thể tải hợp đồng hiện tại'),
                               data: (contracts) {
                                 RentalContract? current;
                                 for (final contract in contracts) {
@@ -281,22 +448,85 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                                     break;
                                   }
                                 }
-                                current ??= contracts.isNotEmpty ? contracts.first : null;
+                                current ??= contracts.isNotEmpty
+                                    ? contracts.first
+                                    : null;
                                 if (current == null) {
                                   return const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 16),
-                                    child: Text('Khách thuê chưa có hợp đồng', style: TextStyle(color: Colors.grey)),
+                                    child: Text(
+                                      'Khách thuê chưa có hợp đồng',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
                                   );
                                 }
                                 return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
-                                    _infoRow(context, Icons.tag, 'Mã hợp đồng', current.contractNumber ?? 'HD-${current.id}', valueBold: true, valueColor: Theme.of(context).colorScheme.primary),
-                                    _infoRow(context, Icons.calendar_today, 'Ngày bắt đầu', current.startDate != null ? DateFormatter.format(DateFormatter.tryParse(current.startDate)) : '-'),
-                                    _infoRow(context, Icons.event, 'Ngày kết thúc', current.endDate != null ? DateFormatter.format(DateFormatter.tryParse(current.endDate)) : '-'),
-                                    _infoRow(context, Icons.payments, 'Giá thuê', current.monthlyRent != null ? '${CurrencyFormatter.format(current.monthlyRent!)} / tháng' : '-', valueBold: true, valueColor: Theme.of(context).colorScheme.primary),
-                                    _infoRow(context, Icons.savings, 'Tiền đặt cọc', current.deposit != null ? CurrencyFormatter.format(current.deposit!) : '-'),
-                                    _infoRow(context, Icons.verified, 'Trạng thái', current.status ?? '-'),
+                                    _infoRow(
+                                      context,
+                                      Icons.tag,
+                                      'Mã hợp đồng',
+                                      current.contractNumber ??
+                                          'HD-${current.id}',
+                                      valueBold: true,
+                                      valueColor: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                    _infoRow(
+                                      context,
+                                      Icons.calendar_today,
+                                      'Ngày bắt đầu',
+                                      current.startDate != null
+                                          ? DateFormatter.format(
+                                              DateFormatter.tryParse(
+                                                current.startDate,
+                                              ),
+                                            )
+                                          : '-',
+                                    ),
+                                    _infoRow(
+                                      context,
+                                      Icons.event,
+                                      'Ngày kết thúc',
+                                      current.endDate != null
+                                          ? DateFormatter.format(
+                                              DateFormatter.tryParse(
+                                                current.endDate,
+                                              ),
+                                            )
+                                          : '-',
+                                    ),
+                                    _infoRow(
+                                      context,
+                                      Icons.payments,
+                                      'Giá thuê',
+                                      current.monthlyRent != null
+                                          ? '${CurrencyFormatter.format(current.monthlyRent!)} / tháng'
+                                          : '-',
+                                      valueBold: true,
+                                      valueColor: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                    _infoRow(
+                                      context,
+                                      Icons.savings,
+                                      'Tiền đặt cọc',
+                                      current.deposit != null
+                                          ? CurrencyFormatter.format(
+                                              current.deposit!,
+                                            )
+                                          : '-',
+                                    ),
+                                    _infoRow(
+                                      context,
+                                      Icons.verified,
+                                      'Trạng thái',
+                                      current.status ?? '-',
+                                    ),
                                   ],
                                 );
                               },
@@ -315,12 +545,16 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                             ),
                             child: invoicesAsync.when(
                               loading: () => const CardShimmer(),
-                              error: (e, _) => const Text('Không thể tải lịch sử hóa đơn'),
+                              error: (e, _) =>
+                                  const Text('Không thể tải lịch sử hóa đơn'),
                               data: (invoices) {
                                 if (invoices.isEmpty) {
                                   return const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 16),
-                                    child: Text('Chưa có hóa đơn nào phát hành', style: TextStyle(color: Colors.grey)),
+                                    child: Text(
+                                      'Chưa có hóa đơn nào phát hành',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
                                   );
                                 }
                                 return ListView.separated(
@@ -332,18 +566,37 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                                     final inv = invoices[index];
                                     return ListTile(
                                       contentPadding: EdgeInsets.zero,
-                                      title: Text('Tháng ${inv.billingMonth}/${inv.billingYear}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                                      subtitle: Text(inv.invoiceNumber ?? '', style: const TextStyle(fontSize: 12)),
+                                      title: Text(
+                                        'Tháng ${inv.billingMonth}/${inv.billingYear}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        inv.invoiceNumber ?? '',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
                                       trailing: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Text(
-                                            CurrencyFormatter.format(inv.totalAmount),
-                                            style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+                                            CurrencyFormatter.format(
+                                              inv.totalAmount,
+                                            ),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.primary,
+                                            ),
                                           ),
                                           const SizedBox(height: 4),
-                                          StatusChip(status: inv.status ?? 'UNPAID'),
+                                          StatusChip(
+                                            status: inv.status ?? 'UNPAID',
+                                          ),
                                         ],
                                       ),
                                     );
@@ -361,26 +614,51 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                             title: 'Yêu cầu sửa chữa',
                             child: maintenanceAsync.when(
                               loading: () => const CardShimmer(),
-                              error: (e, _) => const Text('Không thể tải danh sách sửa chữa'),
+                              error: (e, _) => const Text(
+                                'Không thể tải danh sách sửa chữa',
+                              ),
                               data: (requests) {
                                 if (requests.isEmpty) {
                                   return const Padding(
                                     padding: EdgeInsets.symmetric(vertical: 16),
-                                    child: Text('Chưa có yêu cầu sửa chữa nào', style: TextStyle(color: Colors.grey)),
+                                    child: Text(
+                                      'Chưa có yêu cầu sửa chữa nào',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
                                   );
                                 }
                                 return ListView.separated(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: requests.length > 3 ? 3 : requests.length,
+                                  itemCount: requests.length > 3
+                                      ? 3
+                                      : requests.length,
                                   separatorBuilder: (_, __) => const Divider(),
                                   itemBuilder: (context, index) {
                                     final req = requests[index];
                                     return ListTile(
                                       contentPadding: EdgeInsets.zero,
-                                      title: Text(req.title ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                      subtitle: Text(req.requestDate != null ? DateFormatter.format(DateFormatter.tryParse(req.requestDate)) : '', style: const TextStyle(fontSize: 12)),
-                                      trailing: StatusChip(status: req.status ?? 'OPEN'),
+                                      title: Text(
+                                        req.title ?? '',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        req.requestDate != null
+                                            ? DateFormatter.format(
+                                                DateFormatter.tryParse(
+                                                  req.requestDate,
+                                                ),
+                                              )
+                                            : '',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                      trailing: StatusChip(
+                                        status: req.status ?? 'OPEN',
+                                      ),
                                     );
                                   },
                                 );
@@ -400,7 +678,12 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                 child: Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
-                    border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5)),
+                    border: Border(
+                      top: BorderSide(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                        width: 0.5,
+                      ),
+                    ),
                   ),
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -410,16 +693,26 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                         child: OutlinedButton.icon(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tính năng gửi thông báo đang phát triển')),
+                              const SnackBar(
+                                content: Text(
+                                  'Tính năng gửi thông báo đang phát triển',
+                                ),
+                              ),
                             );
                           },
                           icon: const Icon(Icons.notifications),
                           label: const Text('Gửi thông báo'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Theme.of(context).colorScheme.primary,
-                            side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
+                            side: BorderSide(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -429,15 +722,29 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                         child: ElevatedButton.icon(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Chuyển sang màn hình Tạo hoá đơn...')),
+                              const SnackBar(
+                                content: Text(
+                                  'Chuyển sang màn hình Tạo hoá đơn...',
+                                ),
+                              ),
                             );
                           },
-                          icon: const Icon(Icons.add_circle, color: Colors.white),
-                          label: const Text('Tạo hóa đơn', style: TextStyle(color: Colors.white)),
+                          icon: const Icon(
+                            Icons.add_circle,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            'Tạo hóa đơn',
+                            style: TextStyle(color: Colors.white),
+                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                         ),
                       ),
@@ -467,13 +774,19 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
           children: [
             Row(
               children: [
-                Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  icon,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
-                Text(title, style: AppTextStyles.titleMd.copyWith(fontWeight: FontWeight.bold)),
-                if (trailing != null) ...[
-                  const Spacer(),
-                  trailing,
-                ],
+                Text(
+                  title,
+                  style: AppTextStyles.titleMd.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (trailing != null) ...[const Spacer(), trailing],
               ],
             ),
             const Divider(height: 24),
@@ -484,13 +797,24 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
     );
   }
 
-  Widget _infoRow(BuildContext context, IconData icon, String label, String value, {bool valueBold = false, Color? valueColor}) {
+  Widget _infoRow(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value, {
+    bool valueBold = false,
+    Color? valueColor,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(
+            icon,
+            size: 18,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -507,7 +831,8 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
                   value,
                   style: AppTextStyles.bodyMd.copyWith(
                     fontWeight: valueBold ? FontWeight.bold : FontWeight.w600,
-                    color: valueColor ?? Theme.of(context).colorScheme.onSurface,
+                    color:
+                        valueColor ?? Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ],
@@ -516,5 +841,16 @@ class _AdminTenantDetailScreenState extends ConsumerState<AdminTenantDetailScree
         ],
       ),
     );
+  }
+
+  String _emergencyContactText(TenantProfile tenant) {
+    final name = tenant.emergencyContactName;
+    final phone = tenant.emergencyContactPhone;
+    if ((name == null || name.isEmpty) && (phone == null || phone.isEmpty)) {
+      return '-';
+    }
+    if (name == null || name.isEmpty) return phone!;
+    if (phone == null || phone.isEmpty) return name;
+    return '$name - $phone';
   }
 }

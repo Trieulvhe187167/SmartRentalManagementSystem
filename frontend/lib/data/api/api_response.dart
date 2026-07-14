@@ -1,15 +1,11 @@
-/// Generic API response wrapper matching backend ApiResponse<T>
+/// Generic API response wrapper matching backend `ApiResponse<T>`.
 /// Backend format: { "success": true, "message": "...", "data": {} }
 class ApiResponse<T> {
   final bool success;
   final String message;
   final T? data;
 
-  const ApiResponse({
-    required this.success,
-    required this.message,
-    this.data,
-  });
+  const ApiResponse({required this.success, required this.message, this.data});
 
   factory ApiResponse.fromJson(
     Map<String, dynamic> json,
@@ -25,7 +21,7 @@ class ApiResponse<T> {
   }
 }
 
-/// Paginated response wrapper matching backend PageResponse<T>
+/// Paginated response wrapper matching backend `PageResponse<T>`.
 /// Backend format:
 /// {
 ///   "content": [...],
@@ -55,9 +51,10 @@ class PageResponse<T> {
     Map<String, dynamic> json,
     T Function(Map<String, dynamic>) fromJson,
   ) {
-    final contentList = ((json['content'] ?? json['items']) as List<dynamic>? ?? [])
-        .map((e) => fromJson(e as Map<String, dynamic>))
-        .toList();
+    final contentList =
+        ((json['content'] ?? json['items']) as List<dynamic>? ?? [])
+            .map((e) => fromJson(e as Map<String, dynamic>))
+            .toList();
 
     // Spring Boot 3.x uses nested "page" object
     final rawPage = json['page'];
@@ -78,7 +75,8 @@ class PageResponse<T> {
       content: contentList,
       page: json['number'] as int? ?? json['page'] as int? ?? 0,
       size: json['size'] as int? ?? 20,
-      totalElements: (json['totalElements'] as int?) ??
+      totalElements:
+          (json['totalElements'] as int?) ??
           (json['totalItems'] as int?) ??
           contentList.length,
       totalPages: json['totalPages'] as int? ?? 1,

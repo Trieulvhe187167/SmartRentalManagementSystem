@@ -82,6 +82,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: false,
+    refreshListenable: ApiClient.sessionNotifier,
     redirect: _guard,
     routes: _routes,
     errorBuilder: (context, state) => const NetworkErrorScreen(),
@@ -94,17 +95,10 @@ Future<String?> _guard(BuildContext context, GoRouterState state) async {
   var role = _normalizeRole(await ApiClient.getRole());
   final location = state.matchedLocation;
 
-  // Allow public routes
-  if (location == AppRoutes.splash ||
-      location == AppRoutes.login ||
-      location == AppRoutes.forgotPassword ||
-      location == AppRoutes.resetPassword ||
-      location == AppRoutes.unauthorized ||
-      location == AppRoutes.networkError) {
+  if (_isPublicRoute(location)) {
     return null;
   }
 
-  // Not logged in → login
   if (!isLoggedIn) {
     return AppRoutes.login;
   }
@@ -120,17 +114,34 @@ Future<String?> _guard(BuildContext context, GoRouterState state) async {
     }
   }
 
-  // Admin trying to access tenant routes
-  if (role == 'ADMIN' && location.startsWith('/tenant')) {
+  return resolveAuthRedirect(location: location, isLoggedIn: true, role: role);
+}
+
+String? resolveAuthRedirect({
+  required String location,
+  required bool isLoggedIn,
+  String? role,
+}) {
+  if (_isPublicRoute(location)) return null;
+  if (!isLoggedIn) return AppRoutes.login;
+
+  final normalizedRole = _normalizeRole(role);
+  if (normalizedRole == 'ADMIN' && location.startsWith('/tenant')) {
     return AppRoutes.adminDashboard;
   }
-
-  // Tenant trying to access admin routes
-  if (role == 'TENANT' && location.startsWith('/admin')) {
+  if (normalizedRole == 'TENANT' && location.startsWith('/admin')) {
     return AppRoutes.unauthorized;
   }
-
   return null;
+}
+
+bool _isPublicRoute(String location) {
+  return location == AppRoutes.splash ||
+      location == AppRoutes.login ||
+      location == AppRoutes.forgotPassword ||
+      location == AppRoutes.resetPassword ||
+      location == AppRoutes.unauthorized ||
+      location == AppRoutes.networkError;
 }
 
 String? _normalizeRole(String? role) {
@@ -317,10 +328,14 @@ class TenantShell extends StatelessWidget {
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {
           switch (index) {
-            case 0: context.go(AppRoutes.tenantHome);
-            case 1: context.go(AppRoutes.tenantMaintenance);
-            case 2: context.go(AppRoutes.tenantNotifications);
-            case 3: context.go(AppRoutes.tenantProfile);
+            case 0:
+              context.go(AppRoutes.tenantHome);
+            case 1:
+              context.go(AppRoutes.tenantMaintenance);
+            case 2:
+              context.go(AppRoutes.tenantNotifications);
+            case 3:
+              context.go(AppRoutes.tenantProfile);
           }
         },
         destinations: const [
@@ -360,9 +375,19 @@ class AdminShell extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     int currentIndex = 0;
     if (location == AppRoutes.adminDashboard) currentIndex = 0;
-    if (location == AppRoutes.adminRooms || location == AppRoutes.adminTenants || location == AppRoutes.adminContracts) currentIndex = 1;
-    if (location == AppRoutes.adminInvoices || location == AppRoutes.adminMeterReadings) currentIndex = 2;
-    if (location == AppRoutes.adminRevenue || location == AppRoutes.adminMaintenance) currentIndex = 3;
+    if (location == AppRoutes.adminRooms ||
+        location == AppRoutes.adminTenants ||
+        location == AppRoutes.adminContracts) {
+      currentIndex = 1;
+    }
+    if (location == AppRoutes.adminInvoices ||
+        location == AppRoutes.adminMeterReadings) {
+      currentIndex = 2;
+    }
+    if (location == AppRoutes.adminRevenue ||
+        location == AppRoutes.adminMaintenance) {
+      currentIndex = 3;
+    }
 
     return Scaffold(
       body: child,
@@ -370,10 +395,14 @@ class AdminShell extends StatelessWidget {
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {
           switch (index) {
-            case 0: context.go(AppRoutes.adminDashboard);
-            case 1: context.go(AppRoutes.adminRooms);
-            case 2: context.go(AppRoutes.adminInvoices);
-            case 3: context.go(AppRoutes.adminRevenue);
+            case 0:
+              context.go(AppRoutes.adminDashboard);
+            case 1:
+              context.go(AppRoutes.adminRooms);
+            case 2:
+              context.go(AppRoutes.adminInvoices);
+            case 3:
+              context.go(AppRoutes.adminRevenue);
           }
         },
         destinations: const [

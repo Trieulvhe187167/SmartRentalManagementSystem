@@ -24,14 +24,24 @@ class NetworkErrorScreen extends StatelessWidget {
                     color: AppColors.surfaceContainer,
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: Icon(Icons.wifi_off_outlined, size: 48, color: AppColors.outline),
+                  child: Icon(
+                    Icons.wifi_off_outlined,
+                    size: 48,
+                    color: AppColors.outline,
+                  ),
                 ),
                 const SizedBox(height: 24),
-                Text('Mất kết nối mạng', style: AppTextStyles.headlineSm, textAlign: TextAlign.center),
+                Text(
+                  'Mất kết nối mạng',
+                  style: AppTextStyles.headlineSm,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 12),
                 Text(
                   'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet và thử lại.',
-                  style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),

@@ -2,7 +2,7 @@
 /// Change baseUrl depending on your environment:
 ///   Android Emulator : http://10.0.2.2:8080/api/v1
 ///   iOS Simulator    : http://localhost:8080/api/v1
-///   Physical device  : http://<LAN-IP>:8080/api/v1  (e.g. http://192.168.1.100:8080/api/v1)
+///   Physical device  : `http://<LAN-IP>:8080/api/v1`
 ///   Production       : https://your-domain.com/api/v1
 class ApiConstants {
   ApiConstants._();
@@ -32,14 +32,17 @@ class ApiConstants {
   static const String tenantMaintenance = '/tenant/maintenance-requests';
   static const String tenantNotifications = '/notifications';
   static const String tenantMaintenanceRequests = tenantMaintenance;
-  static const String tenantNotificationsUnreadCount = '/notifications/unread-count';
+  static const String tenantNotificationsUnreadCount =
+      '/notifications/unread-count';
 
   // ─── Admin Dashboard ─────────────────────────────────────
   static const String adminDashboardSummary = '/admin/dashboard/summary';
   static const String adminDashboardRooms = '/admin/dashboard/rooms';
   static const String adminDashboardRevenue = '/admin/dashboard/revenue';
-  static const String adminContractsExpiring = '/admin/dashboard/contracts-expiring';
-  static const String adminOpenMaintenance = '/admin/dashboard/open-maintenance';
+  static const String adminContractsExpiring =
+      '/admin/dashboard/contracts-expiring';
+  static const String adminOpenMaintenance =
+      '/admin/dashboard/open-maintenance';
   static const String adminDashboard = adminDashboardSummary;
   static const String adminRoomStats = adminDashboardRooms;
   static const String adminRevenueSummary = adminDashboardRevenue;
@@ -82,7 +85,8 @@ class ApiConstants {
 
   // ─── Admin Notifications ──────────────────────────────────
   static const String adminNotifications = '/notifications';
-  static const String adminNotificationsBroadcast = '/admin/notifications/general';
+  static const String adminNotificationsBroadcast =
+      '/admin/notifications/general';
 
   // ─── JWT Storage key ─────────────────────────────────────
   static const String tokenKey = 'access_token';

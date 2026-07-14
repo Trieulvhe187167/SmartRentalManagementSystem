@@ -3,9 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.light) {
-    _loadThemeMode();
-  }
+  ThemeModeNotifier({ThemeMode initialMode = ThemeMode.light})
+    : super(initialMode);
 
   static const _storageKey = 'theme_mode';
 
@@ -19,19 +18,21 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
     await prefs.setString(_storageKey, mode.name);
   }
 
-  Future<void> _loadThemeMode() async {
+  static Future<ThemeMode> loadSavedThemeMode() async {
     final prefs = await SharedPreferences.getInstance();
     final savedMode = prefs.getString(_storageKey);
     if (savedMode == ThemeMode.dark.name) {
-      state = ThemeMode.dark;
-    } else if (savedMode == ThemeMode.system.name) {
-      state = ThemeMode.system;
-    } else {
-      state = ThemeMode.light;
+      return ThemeMode.dark;
     }
+    if (savedMode == ThemeMode.system.name) {
+      return ThemeMode.system;
+    }
+    return ThemeMode.light;
   }
 }
 
-final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+final themeModeProvider = StateNotifierProvider<ThemeModeNotifier, ThemeMode>((
+  ref,
+) {
   return ThemeModeNotifier();
 });

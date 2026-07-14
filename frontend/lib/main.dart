@@ -12,6 +12,7 @@ Future<void> main() async {
 
   // Initialize Vietnamese locale for date/currency formatting
   await initializeDateFormatting('vi_VN', null);
+  final initialThemeMode = await ThemeModeNotifier.loadSavedThemeMode();
 
   // Lock to portrait orientation
   await SystemChrome.setPreferredOrientations([
@@ -31,8 +32,13 @@ Future<void> main() async {
 
   runApp(
     // ProviderScope wraps the entire app for Riverpod state management
-    const ProviderScope(
-      child: LuminaResidentApp(),
+    ProviderScope(
+      overrides: [
+        themeModeProvider.overrideWith(
+          (ref) => ThemeModeNotifier(initialMode: initialThemeMode),
+        ),
+      ],
+      child: const LuminaResidentApp(),
     ),
   );
 }
@@ -64,10 +70,7 @@ class LuminaResidentApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('vi', 'VN'),
-        Locale('en', 'US'),
-      ],
+      supportedLocales: const [Locale('vi', 'VN'), Locale('en', 'US')],
     );
   }
 }

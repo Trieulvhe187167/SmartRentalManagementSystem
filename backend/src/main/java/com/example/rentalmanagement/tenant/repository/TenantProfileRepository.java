@@ -64,15 +64,17 @@ import com.example.rentalmanagement.user.repository.*;
 
 public interface TenantProfileRepository extends JpaRepository<TenantProfile, Long> {
     public Optional<TenantProfile> findByUserId(Long userId);
+    public Optional<TenantProfile> findByIdentityNumber(String identityNumber);
     public boolean existsByIdentityNumber(String identityNumber);
 
     @Query("""
             select t from TenantProfile t
             where t.isDeleted = false
+              and (:includeArchived = true or t.status = com.example.rentalmanagement.common.enums.RecordStatus.ACTIVE)
               and (:keyword is null
                or lower(t.fullName) like lower(concat('%', :keyword, '%'))
                or lower(t.identityNumber) like lower(concat('%', :keyword, '%'))
                or lower(t.user.username) like lower(concat('%', :keyword, '%')))
             """)
-    public Page<TenantProfile> search(@Param("keyword") String keyword, Pageable pageable);
+    public Page<TenantProfile> search(@Param("keyword") String keyword, @Param("includeArchived") boolean includeArchived, Pageable pageable);
 }

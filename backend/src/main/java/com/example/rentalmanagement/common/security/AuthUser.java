@@ -104,16 +104,16 @@ public record AuthUser(User user, List<GrantedAuthority> authorities) implements
 
     @Override
     public String getUsername() {
-        return user.username;
+        return user.getUsername();
     }
 
     @Override
     public boolean isAccountNonLocked() {
-        return user.status != UserStatus.LOCKED;
+        return user.getStatus() != UserStatus.LOCKED;
     }
 
     @Override
     public boolean isEnabled() {
-        return user.status == UserStatus.ACTIVE;
+        return user.getStatus() == UserStatus.ACTIVE;
     }
 }

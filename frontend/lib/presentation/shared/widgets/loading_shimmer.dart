@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import '../../../core/constants/app_colors.dart';
 
 /// Generic shimmer loading skeleton
 class LoadingShimmer extends StatelessWidget {
@@ -17,14 +16,15 @@ class LoadingShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Shimmer.fromColors(
-      baseColor: AppColors.surfaceContainerHigh,
-      highlightColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+      baseColor: colors.surfaceContainerHigh,
+      highlightColor: colors.surfaceContainerLowest,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerHigh,
+          color: colors.surfaceContainerHigh,
           borderRadius: BorderRadius.circular(borderRadius),
         ),
       ),
@@ -39,32 +39,48 @@ class CardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
       height: height,
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        color: colors.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        border: Border.all(color: colors.outlineVariant),
       ),
       padding: const EdgeInsets.all(16),
       child: Shimmer.fromColors(
-        baseColor: AppColors.surfaceContainerHigh,
-        highlightColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+        baseColor: colors.surfaceContainerHigh,
+        highlightColor: colors.surfaceContainerLowest,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(width: 40, height: 40, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10))),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(width: double.infinity, height: 14, color: Colors.white),
+                      Container(
+                        width: double.infinity,
+                        height: 14,
+                        color: colors.surfaceContainerHighest,
+                      ),
                       const SizedBox(height: 6),
-                      Container(width: 120, height: 12, color: Colors.white),
+                      Container(
+                        width: 120,
+                        height: 12,
+                        color: colors.surfaceContainerHighest,
+                      ),
                     ],
                   ),
                 ),

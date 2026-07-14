@@ -18,8 +18,17 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = label ?? _vietnameseLabel(status);
-    final color = AppColors.statusColor(status);
-    final bgColor = AppColors.statusLightColor(status);
+    final semanticColor = AppColors.statusColor(status);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark
+        ? Color.lerp(semanticColor, Colors.white, 0.3)!
+        : semanticColor;
+    final bgColor = isDark
+        ? Color.alphaBlend(
+            color.withAlpha(36),
+            Theme.of(context).colorScheme.surface,
+          )
+        : AppColors.statusLightColor(status);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -48,6 +57,8 @@ class StatusChip extends StatelessWidget {
       'OVERDUE' => 'Quá hạn',
       'CANCELLED' => 'Đã hủy',
       'ACTIVE' => 'Đang hiệu lực',
+      'LOCKED' => 'Đang bị khóa',
+      'INACTIVE' => 'Không hoạt động',
       'EXPIRED' => 'Hết hạn',
       'TERMINATED' => 'Đã chấm dứt',
       'PENDING_APPROVAL' => 'Chờ duyệt',
@@ -73,11 +84,24 @@ class PriorityChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (text, color, bgColor) = switch (priority.toUpperCase()) {
-      'HIGH' || 'URGENT' => ('Khẩn cấp', AppColors.danger, AppColors.dangerLight),
-      'MEDIUM' || 'NORMAL' => ('Bình thường', AppColors.warning, AppColors.warningLight),
+    final (text, semanticColor, lightBackground) = switch (priority
+        .toUpperCase()) {
+      'HIGH' ||
+      'URGENT' => ('Khẩn cấp', AppColors.danger, AppColors.dangerLight),
+      'MEDIUM' ||
+      'NORMAL' => ('Bình thường', AppColors.warning, AppColors.warningLight),
       _ => ('Thấp', AppColors.neutral, AppColors.neutralLight),
     };
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isDark
+        ? Color.lerp(semanticColor, Colors.white, 0.3)!
+        : semanticColor;
+    final bgColor = isDark
+        ? Color.alphaBlend(
+            color.withAlpha(36),
+            Theme.of(context).colorScheme.surface,
+          )
+        : lightBackground;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
