@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
@@ -15,12 +17,15 @@ class AdminTenantManagementScreen extends ConsumerStatefulWidget {
   const AdminTenantManagementScreen({super.key});
 
   @override
-  ConsumerState<AdminTenantManagementScreen> createState() => _AdminTenantManagementScreenState();
+  ConsumerState<AdminTenantManagementScreen> createState() =>
+      _AdminTenantManagementScreenState();
 }
 
-class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagementScreen> {
+class _AdminTenantManagementScreenState
+    extends ConsumerState<AdminTenantManagementScreen> {
   final _scrollController = ScrollController();
   final _searchCtrl = TextEditingController();
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -32,11 +37,13 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
   void dispose() {
     _scrollController.dispose();
     _searchCtrl.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       ref.read(adminTenantsProvider.notifier).fetchTenants();
     }
   }
@@ -58,9 +65,8 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async {
-          ref.read(adminTenantsProvider.notifier).fetchTenants(refresh: true);
-        },
+        onRefresh: () =>
+            ref.read(adminTenantsProvider.notifier).fetchTenants(refresh: true),
         child: Column(
           children: [
             // ─── Search Bar ─────────────────────────────
@@ -77,13 +83,22 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchCtrl.clear();
-                            ref.read(adminTenantsProvider.notifier).updateSearch('');
+                            ref
+                                .read(adminTenantsProvider.notifier)
+                                .updateSearch('');
                           },
                         )
                       : null,
                 ),
                 onChanged: (v) {
-                  ref.read(adminTenantsProvider.notifier).updateSearch(v.trim());
+                  setState(() {});
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(
+                    const Duration(milliseconds: 350),
+                    () => ref
+                        .read(adminTenantsProvider.notifier)
+                        .updateSearch(v.trim()),
+                  );
                 },
               ),
             ),
@@ -94,36 +109,40 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
                   ? ListView.builder(
                       padding: const EdgeInsets.all(20),
                       itemCount: 5,
-                      itemBuilder: (context, index) => const CardShimmer(height: 100),
+                      itemBuilder: (context, index) =>
+                          const CardShimmer(height: 100),
                     )
                   : state.error != null
-                      ? ErrorState(
-                          message: 'Lỗi tải danh sách khách: ${state.error}',
-                          onRetry: () => ref.read(adminTenantsProvider.notifier).fetchTenants(refresh: true),
-                        )
-                      : state.items.isEmpty
-                          ? const EmptyState(
-                              title: 'Không tìm thấy khách thuê nào',
-                              subtitle: 'Gõ từ khóa khác hoặc bấm + để thêm khách mới',
-                              icon: Icons.people_outline,
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(20),
-                              itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == state.items.length) {
-                                  return const Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  );
-                                }
-                                final tenant = state.items[index];
-                                return _buildTenantCard(context, tenant);
-                              },
+                  ? ErrorState(
+                      message: 'Lỗi tải danh sách khách: ${state.error}',
+                      onRetry: () => ref
+                          .read(adminTenantsProvider.notifier)
+                          .fetchTenants(refresh: true),
+                    )
+                  : state.items.isEmpty
+                  ? const EmptyState(
+                      title: 'Không tìm thấy khách thuê nào',
+                      subtitle: 'Gõ từ khóa khác hoặc bấm + để thêm khách mới',
+                      icon: Icons.people_outline,
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(20),
+                      itemCount:
+                          state.items.length + (state.isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == state.items.length) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: CircularProgressIndicator(),
                             ),
+                          );
+                        }
+                        final tenant = state.items[index];
+                        return _buildTenantCard(context, tenant);
+                      },
+                    ),
             ),
           ],
         ),
@@ -140,53 +159,67 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
   Widget _buildTenantCard(BuildContext context, TenantProfile tenant) {
     final active = tenant.active ?? false;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              tenant.fullName ?? 'Không tên',
-              style: AppTextStyles.titleMd.copyWith(fontWeight: FontWeight.bold),
-            ),
-            StatusChip(status: active ? 'ACTIVE' : 'EXPIRED', label: active ? 'Hoạt động' : 'Tạm ngưng'),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.phone_outlined, size: 16, color: AppColors.outline),
-                const SizedBox(width: 6),
-                Text(tenant.phone ?? '—', style: AppTextStyles.bodySm),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.meeting_room_outlined, size: 16, color: AppColors.outline),
-                const SizedBox(width: 6),
-                Text(
-                  tenant.currentRoom != null ? 'Phòng: ${tenant.currentRoom}' : 'Chưa nhận phòng',
-                  style: AppTextStyles.bodySm.copyWith(
-                    color: tenant.currentRoom != null ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: tenant.currentRoom != null ? FontWeight.bold : FontWeight.normal,
-                  ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: AppCard(
+        padding: EdgeInsets.zero,
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(16),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                tenant.fullName ?? 'Không tên',
+                style: AppTextStyles.titleMd.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
-            ),
-          ],
+              ),
+              StatusChip(status: active ? 'ACTIVE' : 'LOCKED'),
+            ],
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.phone_outlined,
+                    size: 16,
+                    color: AppColors.outline,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(tenant.phone ?? '—', style: AppTextStyles.bodySm),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.meeting_room_outlined,
+                    size: 16,
+                    color: AppColors.outline,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    tenant.currentRoom != null
+                        ? 'Phòng: ${tenant.currentRoom}'
+                        : 'Chưa nhận phòng',
+                    style: AppTextStyles.bodySm.copyWith(
+                      color: tenant.currentRoom != null
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: tenant.currentRoom != null
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          onTap: () => _showTenantDetailSheet(context, tenant),
         ),
-        onTap: () => _showTenantDetailSheet(context, tenant),
       ),
     );
   }
@@ -226,8 +259,13 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(tenant.fullName ?? 'Khách thuê', style: AppTextStyles.headlineSm),
-                      StatusChip(status: (tenant.active ?? false) ? 'ACTIVE' : 'EXPIRED', label: (tenant.active ?? false) ? 'Hoạt động' : 'Tạm ngưng'),
+                      Text(
+                        tenant.fullName ?? 'Khách thuê',
+                        style: AppTextStyles.headlineSm,
+                      ),
+                      StatusChip(
+                        status: (tenant.active ?? false) ? 'ACTIVE' : 'LOCKED',
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -243,37 +281,80 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
                   const SizedBox(height: 12),
                   _buildDetailRow('Địa chỉ thường trú', tenant.address ?? '—'),
                   const SizedBox(height: 12),
-                  _buildDetailRow('Phòng đang ở', tenant.currentRoom ?? 'Chưa thuê phòng nào'),
+                  _buildDetailRow(
+                    'Phòng đang ở',
+                    tenant.currentRoom ?? 'Chưa thuê phòng nào',
+                  ),
                   const SizedBox(height: 12),
-                  _buildDetailRow('Ngày tham gia', DateFormatter.format(DateFormatter.tryParse(tenant.createdAt))),
-                  const SizedBox(height: 32),
-                  if (tenant.active ?? false)
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.danger,
-                        side: const BorderSide(color: AppColors.danger, width: 1.5),
-                      ),
-                      onPressed: () async {
-                        try {
-                          await AdminRepository.instance.deactivateTenant(tenant.id!);
-                          ref.read(adminTenantsProvider.notifier).fetchTenants(refresh: true);
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tạm ngưng tài khoản khách thành công'), backgroundColor: AppColors.success),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.pause_circle_outline),
-                      label: const Text('Tạm khóa khách thuê này'),
+                  _buildDetailRow(
+                    'Ngày tham gia',
+                    DateFormatter.format(
+                      DateFormatter.tryParse(tenant.createdAt),
                     ),
+                  ),
+                  const SizedBox(height: 32),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: (tenant.active ?? false)
+                          ? AppColors.danger
+                          : AppColors.success,
+                      side: BorderSide(
+                        color: (tenant.active ?? false)
+                            ? AppColors.danger
+                            : AppColors.success,
+                        width: 1.5,
+                      ),
+                    ),
+                    onPressed: () async {
+                      final shouldLock = tenant.active ?? false;
+                      try {
+                        if (shouldLock) {
+                          await AdminRepository.instance.deactivateTenant(
+                            tenant.id!,
+                          );
+                        } else {
+                          await AdminRepository.instance.activateTenant(
+                            tenant.id!,
+                          );
+                        }
+                        await ref
+                            .read(adminTenantsProvider.notifier)
+                            .fetchTenants(refresh: true);
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                shouldLock
+                                    ? 'Đã khóa tài khoản khách thuê'
+                                    : 'Đã mở khóa tài khoản khách thuê',
+                              ),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(e.toString()),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: Icon(
+                      (tenant.active ?? false)
+                          ? Icons.lock_outline
+                          : Icons.lock_open_outlined,
+                    ),
+                    label: Text(
+                      (tenant.active ?? false)
+                          ? 'Khóa tài khoản khách thuê'
+                          : 'Mở khóa tài khoản khách thuê',
+                    ),
+                  ),
                 ],
               ),
             );
@@ -291,7 +372,9 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
           width: 140,
           child: Text(
             label,
-            style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: AppTextStyles.bodyMd.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         Expanded(
@@ -315,12 +398,17 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
       builder: (context) {
         return _CreateTenantForm(
           onSubmit: (req) async {
-            final error = await ref.read(adminTenantsProvider.notifier).createTenant(req);
+            final error = await ref
+                .read(adminTenantsProvider.notifier)
+                .createTenant(req);
             if (context.mounted) {
               Navigator.pop(context);
               if (error != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(error), backgroundColor: AppColors.error),
+                  SnackBar(
+                    content: Text(error),
+                    backgroundColor: AppColors.error,
+                  ),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -403,8 +491,12 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
               // Full name
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Họ và tên khách thuê'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập họ tên' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Họ và tên khách thuê',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Vui lòng nhập họ tên'
+                    : null,
               ),
               const SizedBox(height: 16),
 
@@ -414,9 +506,21 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _phoneCtrl,
-                      decoration: const InputDecoration(labelText: 'Số điện thoại'),
+                      decoration: const InputDecoration(
+                        labelText: 'Số điện thoại',
+                      ),
                       keyboardType: TextInputType.phone,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập SĐT' : null,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Nhập SĐT';
+                        }
+                        if (!RegExp(
+                          r'^(0|\+84)(3|5|7|8|9)\d{8}$',
+                        ).hasMatch(v.trim())) {
+                          return 'SĐT Việt Nam không hợp lệ';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -425,7 +529,17 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
                       controller: _emailCtrl,
                       decoration: const InputDecoration(labelText: 'Email'),
                       keyboardType: TextInputType.emailAddress,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập email' : null,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Nhập email';
+                        }
+                        if (!RegExp(
+                          r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                        ).hasMatch(v.trim())) {
+                          return 'Email không hợp lệ';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                 ],
@@ -438,20 +552,36 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _idNoCtrl,
-                      decoration: const InputDecoration(labelText: 'Số CMND/CCCD'),
+                      decoration: const InputDecoration(
+                        labelText: 'Số CMND/CCCD',
+                      ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập số CMND' : null,
+                      validator: (v) {
+                        final value = v?.trim() ?? '';
+                        if (value.isEmpty) return 'Nhập số CMND/CCCD';
+                        final valid = switch (_idType) {
+                          'CCCD' => RegExp(r'^\d{12}$').hasMatch(value),
+                          'CMND' => RegExp(r'^\d{9}$').hasMatch(value),
+                          _ => RegExp(r'^[A-Za-z0-9]{6,12}$').hasMatch(value),
+                        };
+                        return valid ? null : 'Số giấy tờ không đúng định dạng';
+                      },
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _idType,
-                      decoration: const InputDecoration(labelText: 'Loại giấy tờ'),
+                      decoration: const InputDecoration(
+                        labelText: 'Loại giấy tờ',
+                      ),
                       items: const [
                         DropdownMenuItem(value: 'CCCD', child: Text('CCCD')),
                         DropdownMenuItem(value: 'CMND', child: Text('CMND')),
-                        DropdownMenuItem(value: 'PASSPORT', child: Text('Hộ chiếu')),
+                        DropdownMenuItem(
+                          value: 'PASSPORT',
+                          child: Text('Hộ chiếu'),
+                        ),
                       ],
                       onChanged: (v) {
                         if (v != null) setState(() => _idType = v);
@@ -465,8 +595,12 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
               // Address
               TextFormField(
                 controller: _addrCtrl,
-                decoration: const InputDecoration(labelText: 'Địa chỉ thường trú'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập địa chỉ thường trú' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Địa chỉ thường trú',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Nhập địa chỉ thường trú'
+                    : null,
               ),
               const SizedBox(height: 24),
               const Divider(),
@@ -481,8 +615,12 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _userCtrl,
-                      decoration: const InputDecoration(labelText: 'Tên đăng nhập'),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập username' : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên đăng nhập',
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nhập username'
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 16),

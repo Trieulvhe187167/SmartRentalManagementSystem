@@ -19,18 +19,24 @@ class TenantDashboardResponse {
   factory TenantDashboardResponse.fromJson(Map<String, dynamic> json) {
     return TenantDashboardResponse(
       currentRoom: json['currentRoom'] != null
-          ? CurrentRoomInfo.fromJson(json['currentRoom'] as Map<String, dynamic>)
+          ? CurrentRoomInfo.fromJson(
+              json['currentRoom'] as Map<String, dynamic>,
+            )
           : null,
       currentInvoice: (json['currentInvoice'] ?? json['latestInvoice']) != null
           ? Invoice.fromJson(
-              (json['currentInvoice'] ?? json['latestInvoice']) as Map<String, dynamic>,
+              (json['currentInvoice'] ?? json['latestInvoice'])
+                  as Map<String, dynamic>,
             )
           : null,
       totalDebt:
           ((json['totalDebt'] ?? json['currentDebt']) as num?)?.toDouble() ?? 0,
-      recentMaintenanceRequests: (json['recentMaintenanceRequests'] as List<dynamic>? ?? [])
-          .map((e) => MaintenanceRequest.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      recentMaintenanceRequests:
+          (json['recentMaintenanceRequests'] as List<dynamic>? ?? [])
+              .map(
+                (e) => MaintenanceRequest.fromJson(e as Map<String, dynamic>),
+              )
+              .toList(),
       unreadNotifications: json['unreadNotifications'] as int? ?? 0,
     );
   }
@@ -62,10 +68,11 @@ class CurrentRoomInfo {
       id: json['id'] as int?,
       roomNumber: json['roomNumber'] as String?,
       floor: _floorNumber(json['floor']),
-      buildingName: json['buildingName'] as String? ??
+      buildingName:
+          json['buildingName'] as String? ??
           (json['building'] as Map<String, dynamic>?)?['name'] as String?,
-      monthlyRent:
-          ((json['monthlyRent'] ?? json['defaultRent']) as num?)?.toDouble(),
+      monthlyRent: ((json['monthlyRent'] ?? json['defaultRent']) as num?)
+          ?.toDouble(),
       status: json['status'] as String?,
       type: json['type'] as String?,
       area: ((json['area'] ?? json['areaM2']) as num?)?.toDouble(),
@@ -73,21 +80,22 @@ class CurrentRoomInfo {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'roomNumber': roomNumber,
-        'floor': floor,
-        'buildingName': buildingName,
-        'monthlyRent': monthlyRent,
-        'status': status,
-        'type': type,
-        'area': area,
+    'id': id,
+    'roomNumber': roomNumber,
+    'floor': floor,
+    'buildingName': buildingName,
+    'monthlyRent': monthlyRent,
+    'status': status,
+    'type': type,
+    'area': area,
   };
 }
 
 int? _floorNumber(dynamic value) {
   if (value is num) return value.toInt();
   if (value is Map<String, dynamic>) {
-    return (value['floorNumber'] as num?)?.toInt() ?? (value['number'] as num?)?.toInt();
+    return (value['floorNumber'] as num?)?.toInt() ??
+        (value['number'] as num?)?.toInt();
   }
   return null;
 }
@@ -124,23 +132,29 @@ class TenantProfile {
   factory TenantProfile.fromJson(Map<String, dynamic> json) {
     final user = json['user'];
     final status = json['status'] as String?;
-    final userStatus =
-        user is Map<String, dynamic> ? user['status'] as String? : null;
+    final userStatus = user is Map<String, dynamic>
+        ? user['status'] as String?
+        : null;
     return TenantProfile(
       id: (json['id'] as num?)?.toInt(),
       userId: user is Map<String, dynamic>
           ? (user['id'] as num?)?.toInt()
           : (json['userId'] as num?)?.toInt(),
       fullName: json['fullName'] as String?,
-      email: json['email'] as String? ??
+      email:
+          json['email'] as String? ??
           (user is Map<String, dynamic> ? user['email'] as String? : null),
-      phone: json['phone'] as String? ??
+      phone:
+          json['phone'] as String? ??
           (user is Map<String, dynamic> ? user['phone'] as String? : null),
-      idNumber: json['idNumber'] as String? ?? json['identityNumber'] as String?,
+      idNumber:
+          json['idNumber'] as String? ?? json['identityNumber'] as String?,
       idType: json['idType'] as String? ?? json['identityType'] as String?,
-      address: json['address'] as String? ?? json['permanentAddress'] as String?,
+      address:
+          json['address'] as String? ?? json['permanentAddress'] as String?,
       currentRoom: json['currentRoom'] as String?,
-      active: json['active'] as bool? ??
+      active:
+          json['active'] as bool? ??
           (status == null ? null : status == 'ACTIVE') ??
           (userStatus == null ? null : userStatus == 'ACTIVE'),
       status: status ?? userStatus,
@@ -149,19 +163,19 @@ class TenantProfile {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'userId': userId,
-        'fullName': fullName,
-        'email': email,
-        'phone': phone,
-        'idNumber': idNumber,
-        'idType': idType,
-        'address': address,
-        'currentRoom': currentRoom,
-        'active': active,
-        'status': status,
-        'createdAt': createdAt,
-      };
+    'id': id,
+    'userId': userId,
+    'fullName': fullName,
+    'email': email,
+    'phone': phone,
+    'idNumber': idNumber,
+    'idType': idType,
+    'address': address,
+    'currentRoom': currentRoom,
+    'active': active,
+    'status': status,
+    'createdAt': createdAt,
+  };
 }
 
 class TenantRequest {
@@ -198,25 +212,26 @@ class TenantRequest {
   });
 
   Map<String, dynamic> toAccountJson() => {
-        'username': username,
-        'temporaryPassword': password,
-        'fullName': fullName,
-        'phone': phone,
-        'email': email,
-      };
+    'username': username,
+    'temporaryPassword': password,
+    'fullName': fullName,
+    'phone': phone,
+    'email': email,
+    'identityNumber': idNumber,
+  };
 
   Map<String, dynamic> toProfileJson(int linkedUserId) => {
-        'userId': linkedUserId,
-        'fullName': fullName,
-        'email': email,
-        'phone': phone,
-        'dateOfBirth': dateOfBirth ?? '1990-01-01',
-        'identityType': idType,
-        'identityNumber': idNumber,
-        'identityIssuedDate': identityIssuedDate,
-        'identityIssuedPlace': identityIssuedPlace,
-        'permanentAddress': address,
-        'emergencyContactName': emergencyContactName,
-        'emergencyContactPhone': emergencyContactPhone,
-      };
+    'userId': linkedUserId,
+    'fullName': fullName,
+    'email': email,
+    'phone': phone,
+    'dateOfBirth': dateOfBirth ?? '1990-01-01',
+    'identityType': idType,
+    'identityNumber': idNumber,
+    'identityIssuedDate': identityIssuedDate,
+    'identityIssuedPlace': identityIssuedPlace,
+    'permanentAddress': address,
+    'emergencyContactName': emergencyContactName,
+    'emergencyContactPhone': emergencyContactPhone,
+  };
 }

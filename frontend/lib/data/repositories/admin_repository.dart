@@ -86,7 +86,10 @@ class AdminRepository {
 
   // ─── Rooms ──────────────────────────────────────────────────────────────────
 
-  Future<PageResponse<Building>> buildings({int page = 0, int size = 100}) async {
+  Future<PageResponse<Building>> buildings({
+    int page = 0,
+    int size = 100,
+  }) async {
     try {
       final response = await _dio.get(
         ApiConstants.adminBuildings,
@@ -153,10 +156,7 @@ class AdminRepository {
         response.data as Map<String, dynamic>,
         (json) => json as Map<String, dynamic>,
       );
-      return PageResponse<Room>.fromJson(
-        apiResponse.data!,
-        (json) => Room.fromJson(json as Map<String, dynamic>),
-      );
+      return PageResponse<Room>.fromJson(apiResponse.data!, Room.fromJson);
     } on DioException catch (e) {
       throw e.error ?? e;
     }
@@ -173,6 +173,23 @@ class AdminRepository {
       return apiResponse.data!;
     } on DioException catch (e) {
       throw e.error ?? e;
+    }
+  }
+
+  Future<RentalContract?> currentRoomContract(int roomId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.adminRooms}/$roomId/current-tenant',
+      );
+      final apiResponse = ApiResponse<RentalContract>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => RentalContract.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data;
+    } on DioException catch (e) {
+      final error = e.error;
+      if (error is ApiException && error.isNotFound) return null;
+      throw error ?? e;
     }
   }
 
@@ -268,7 +285,7 @@ class AdminRepository {
       );
       return PageResponse<TenantProfile>.fromJson(
         apiResponse.data!,
-        (json) => TenantProfile.fromJson(json as Map<String, dynamic>),
+        TenantProfile.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -356,6 +373,19 @@ class AdminRepository {
     }
   }
 
+  Future<void> activateTenant(int id) async {
+    try {
+      final profile = await tenant(id);
+      final userId = profile.userId;
+      if (userId == null) {
+        throw StateError('Tenant profile has no linked user id.');
+      }
+      await _dio.put('${ApiConstants.adminUsers}/$userId/unlock');
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
   // ─── Contracts ──────────────────────────────────────────────────────────────
 
   // GET /admin/contracts
@@ -381,7 +411,7 @@ class AdminRepository {
       );
       return PageResponse<RentalContract>.fromJson(
         apiResponse.data!,
-        (json) => RentalContract.fromJson(json as Map<String, dynamic>),
+        RentalContract.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -405,7 +435,7 @@ class AdminRepository {
       );
       return PageResponse<RentalContract>.fromJson(
         apiResponse.data!,
-        (json) => RentalContract.fromJson(json as Map<String, dynamic>),
+        RentalContract.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -445,7 +475,9 @@ class AdminRepository {
 
   // PUT /admin/contracts/{id}/terminate
   Future<RentalContract> terminateContract(
-      int id, ContractTerminateRequest req) async {
+    int id,
+    ContractTerminateRequest req,
+  ) async {
     try {
       final response = await _dio.put(
         '${ApiConstants.adminContracts}/$id/terminate',
@@ -464,8 +496,10 @@ class AdminRepository {
   // ─── Meter Readings ─────────────────────────────────────────────────────────
 
   // GET /admin/meter-readings
-  Future<PageResponse<MeterReading>> meterReadings(
-      {int page = 0, int size = 20}) async {
+  Future<PageResponse<MeterReading>> meterReadings({
+    int page = 0,
+    int size = 20,
+  }) async {
     try {
       final response = await _dio.get(
         ApiConstants.adminMeterReadings,
@@ -477,7 +511,7 @@ class AdminRepository {
       );
       return PageResponse<MeterReading>.fromJson(
         apiResponse.data!,
-        (json) => MeterReading.fromJson(json as Map<String, dynamic>),
+        MeterReading.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -503,7 +537,9 @@ class AdminRepository {
 
   // PUT /admin/meter-readings/{id}
   Future<MeterReading> updateMeterReading(
-      int id, MeterReadingRequest req) async {
+    int id,
+    MeterReadingRequest req,
+  ) async {
     try {
       final response = await _dio.put(
         '${ApiConstants.adminMeterReadings}/$id',
@@ -540,11 +576,10 @@ class AdminRepository {
     try {
       final response = await _dio.get(
         '/admin/rooms/$roomId/meter-readings/latest',
-        queryParameters: {
-          if (serviceId != null) 'serviceId': serviceId,
-        },
+        queryParameters: {if (serviceId != null) 'serviceId': serviceId},
       );
-      if (response.data == null || (response.data as Map<String, dynamic>)['data'] == null) {
+      if (response.data == null ||
+          (response.data as Map<String, dynamic>)['data'] == null) {
         return null;
       }
       final apiResponse = ApiResponse<MeterReading>.fromJson(
@@ -589,7 +624,7 @@ class AdminRepository {
       );
       return PageResponse<Invoice>.fromJson(
         apiResponse.data!,
-        (json) => Invoice.fromJson(json as Map<String, dynamic>),
+        Invoice.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -629,7 +664,8 @@ class AdminRepository {
 
   // POST /admin/invoices/generate-monthly
   Future<List<Invoice>> generateMonthly(
-      GenerateMonthlyInvoicesRequest req) async {
+    GenerateMonthlyInvoicesRequest req,
+  ) async {
     try {
       final response = await _dio.post(
         ApiConstants.adminInvoicesGenerateMonthly,
@@ -705,7 +741,7 @@ class AdminRepository {
       );
       return PageResponse<Payment>.fromJson(
         apiResponse.data!,
-        (json) => Payment.fromJson(json as Map<String, dynamic>),
+        Payment.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -713,8 +749,7 @@ class AdminRepository {
   }
 
   // POST /admin/invoices/{invoiceId}/payments
-  Future<Payment> recordPayment(
-      int invoiceId, PaymentCreateRequest req) async {
+  Future<Payment> recordPayment(int invoiceId, PaymentCreateRequest req) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.adminInvoices}/$invoiceId/payments',
@@ -762,7 +797,7 @@ class AdminRepository {
       );
       return PageResponse<Invoice>.fromJson(
         apiResponse.data!,
-        (json) => Invoice.fromJson(json as Map<String, dynamic>),
+        Invoice.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -794,7 +829,7 @@ class AdminRepository {
       );
       return PageResponse<MaintenanceRequest>.fromJson(
         apiResponse.data!,
-        (json) => MaintenanceRequest.fromJson(json as Map<String, dynamic>),
+        MaintenanceRequest.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -818,7 +853,7 @@ class AdminRepository {
       );
       return PageResponse<MaintenanceUpdate>.fromJson(
         apiResponse.data!,
-        (json) => MaintenanceUpdate.fromJson(json as Map<String, dynamic>),
+        MaintenanceUpdate.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -828,8 +863,9 @@ class AdminRepository {
   // GET /admin/maintenance-requests/{id}
   Future<MaintenanceRequest> maintenanceRequest(int id) async {
     try {
-      final response =
-          await _dio.get('${ApiConstants.adminMaintenanceRequests}/$id');
+      final response = await _dio.get(
+        '${ApiConstants.adminMaintenanceRequests}/$id',
+      );
       final apiResponse = ApiResponse<MaintenanceRequest>.fromJson(
         response.data as Map<String, dynamic>,
         (json) => MaintenanceRequest.fromJson(json as Map<String, dynamic>),
@@ -845,7 +881,11 @@ class AdminRepository {
     try {
       final response = await _dio.put(
         '${ApiConstants.adminMaintenanceRequests}/$id/receive',
-        data: {'content': notes.trim().isEmpty ? 'Đã tiếp nhận yêu cầu' : notes.trim()},
+        data: {
+          'content': notes.trim().isEmpty
+              ? 'Đã tiếp nhận yêu cầu'
+              : notes.trim(),
+        },
       );
       final apiResponse = ApiResponse<MaintenanceRequest>.fromJson(
         response.data as Map<String, dynamic>,
@@ -862,7 +902,9 @@ class AdminRepository {
     try {
       final response = await _dio.put(
         '${ApiConstants.adminMaintenanceRequests}/$id/in-progress',
-        data: {'content': notes.trim().isEmpty ? 'Đang xử lý yêu cầu' : notes.trim()},
+        data: {
+          'content': notes.trim().isEmpty ? 'Đang xử lý yêu cầu' : notes.trim(),
+        },
       );
       final apiResponse = ApiResponse<MaintenanceRequest>.fromJson(
         response.data as Map<String, dynamic>,
@@ -880,10 +922,7 @@ class AdminRepository {
     try {
       final response = await _dio.put(
         '${ApiConstants.adminMaintenanceRequests}/$id/resolve',
-        data: {
-          'content': content,
-          'resolutionSummary': content,
-        },
+        data: {'content': content, 'resolutionSummary': content},
       );
       final apiResponse = ApiResponse<MaintenanceRequest>.fromJson(
         response.data as Map<String, dynamic>,
@@ -901,10 +940,7 @@ class AdminRepository {
     try {
       final response = await _dio.put(
         '${ApiConstants.adminMaintenanceRequests}/$id/reject',
-        data: {
-          'content': content,
-          'rejectedReason': content,
-        },
+        data: {'content': content, 'rejectedReason': content},
       );
       final apiResponse = ApiResponse<MaintenanceRequest>.fromJson(
         response.data as Map<String, dynamic>,
@@ -923,9 +959,7 @@ class AdminRepository {
     try {
       final response = await _dio.get(
         ApiConstants.adminServices,
-        queryParameters: {
-          if (activeOnly != null) 'activeOnly': activeOnly,
-        },
+        queryParameters: {if (activeOnly != null) 'activeOnly': activeOnly},
       );
       final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
         response.data as Map<String, dynamic>,
@@ -936,7 +970,9 @@ class AdminRepository {
         (json) => ServiceItem.fromJson(json),
       );
       return page.content
-          .where((service) => activeOnly == true ? service.active == true : true)
+          .where(
+            (service) => activeOnly == true ? service.active == true : true,
+          )
           .toList();
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -1013,8 +1049,10 @@ class AdminRepository {
   // ─── Notifications ──────────────────────────────────────────────────────────
 
   // GET /admin/notifications
-  Future<PageResponse<AppNotification>> notifications(
-      {int page = 0, int size = 20}) async {
+  Future<PageResponse<AppNotification>> notifications({
+    int page = 0,
+    int size = 20,
+  }) async {
     try {
       final response = await _dio.get(
         ApiConstants.adminNotifications,
@@ -1026,7 +1064,7 @@ class AdminRepository {
       );
       return PageResponse<AppNotification>.fromJson(
         apiResponse.data!,
-        (json) => AppNotification.fromJson(json as Map<String, dynamic>),
+        AppNotification.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;

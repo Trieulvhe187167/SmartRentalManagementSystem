@@ -111,7 +111,8 @@ class Room {
       maxOccupants: (json['maxOccupants'] as num?)?.toInt(),
       status: json['status'] as String? ?? 'AVAILABLE',
       monthlyRent:
-          ((json['monthlyRent'] ?? json['defaultRent']) as num?)?.toDouble() ?? 0,
+          ((json['monthlyRent'] ?? json['defaultRent']) as num?)?.toDouble() ??
+          0,
       defaultDeposit: (json['defaultDeposit'] as num?)?.toDouble() ?? 0,
       description: json['description'] as String?,
       currentTenantName: json['currentTenantName'] as String?,
@@ -134,7 +135,8 @@ class Room {
 int? _floorNumber(dynamic value) {
   if (value is num) return value.toInt();
   if (value is Map<String, dynamic>) {
-    return (value['floorNumber'] as num?)?.toInt() ?? (value['number'] as num?)?.toInt();
+    return (value['floorNumber'] as num?)?.toInt() ??
+        (value['number'] as num?)?.toInt();
   }
   return null;
 }
@@ -167,32 +169,23 @@ class RoomRequest {
 
   RoomRequest({
     required this.roomNumber,
-    int? buildingId,
-    int? floorId,
-    int? floor,
-    String? building,
-    double? areaM2,
-    double? area,
-    double? defaultRent,
-    double? monthlyRent,
-    double? defaultDeposit,
-    String? status,
-    this.maxOccupants,
+    required this.buildingId,
+    required this.floorId,
+    required this.areaM2,
+    required this.defaultRent,
+    required this.defaultDeposit,
+    required this.maxOccupants,
     this.description,
-  })  : buildingId = buildingId ?? 1,
-        floorId = floorId ?? floor ?? 1,
-        areaM2 = areaM2 ?? area ?? 0,
-        defaultRent = defaultRent ?? monthlyRent ?? 0,
-        defaultDeposit = defaultDeposit ?? monthlyRent ?? 0;
+  });
 
   Map<String, dynamic> toJson() => {
-        'buildingId': buildingId,
-        'floorId': floorId,
-        'roomNumber': roomNumber,
-        'areaM2': areaM2,
-        'defaultRent': defaultRent,
-        'defaultDeposit': defaultDeposit,
-        if (maxOccupants != null) 'maxOccupants': maxOccupants,
-        if (description != null) 'description': description,
-      };
+    'buildingId': buildingId,
+    'floorId': floorId,
+    'roomNumber': roomNumber,
+    'areaM2': areaM2,
+    'defaultRent': defaultRent,
+    'defaultDeposit': defaultDeposit,
+    if (maxOccupants != null) 'maxOccupants': maxOccupants,
+    if (description != null) 'description': description,
+  };
 }

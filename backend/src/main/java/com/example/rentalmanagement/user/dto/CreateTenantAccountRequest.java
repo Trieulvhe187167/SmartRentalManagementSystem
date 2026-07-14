@@ -61,7 +61,8 @@ public record CreateTenantAccountRequest(
         @NotBlank @Size(max = 100) String username,
         @NotBlank @Size(min = 8, max = 72) String temporaryPassword,
         @Size(max = 150) String fullName,
-        String phone,
-        @Email String email
+        @NotBlank @Pattern(regexp = "^(0|\\+84)(3|5|7|8|9)[0-9]{8}$") String phone,
+        @NotBlank @Email String email,
+        @NotBlank String identityNumber
 ) {
 }

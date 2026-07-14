@@ -54,6 +54,8 @@ class StatusChip extends StatelessWidget {
       'AVAILABLE' => 'Trống',
       'OCCUPIED' => 'Đã thuê',
       'MAINTENANCE' => 'Bảo trì',
+      'INACTIVE' => 'Ngừng hoạt động',
+      'LOCKED' => 'Đã khóa',
       'PENDING' => 'Đang chờ',
       'OPEN' => 'Đang chờ',
       'RECEIVED' => 'Đã tiếp nhận',
@@ -74,8 +76,10 @@ class PriorityChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (text, color, bgColor) = switch (priority.toUpperCase()) {
-      'HIGH' || 'URGENT' => ('Khẩn cấp', AppColors.danger, AppColors.dangerLight),
-      'MEDIUM' || 'NORMAL' => ('Bình thường', AppColors.warning, AppColors.warningLight),
+      'HIGH' ||
+      'URGENT' => ('Khẩn cấp', AppColors.danger, AppColors.dangerLight),
+      'MEDIUM' ||
+      'NORMAL' => ('Bình thường', AppColors.warning, AppColors.warningLight),
       _ => ('Thấp', AppColors.neutral, AppColors.neutralLight),
     };
 

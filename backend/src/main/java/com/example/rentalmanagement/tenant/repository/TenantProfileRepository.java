@@ -65,6 +65,8 @@ import com.example.rentalmanagement.user.repository.*;
 public interface TenantProfileRepository extends JpaRepository<TenantProfile, Long> {
     public Optional<TenantProfile> findByUserId(Long userId);
     public boolean existsByIdentityNumber(String identityNumber);
+    public boolean existsByIdentityNumberIgnoreCase(String identityNumber);
+    public boolean existsByIdentityNumberIgnoreCaseAndIdNot(String identityNumber, Long id);
 
     @Query("""
             select t from TenantProfile t

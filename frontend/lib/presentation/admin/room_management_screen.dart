@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,8 +20,10 @@ final adminBuildingsListProvider = FutureProvider<List<Building>>((ref) async {
   return res.content.where((b) => b.status != 'INACTIVE').toList();
 });
 
-final adminFloorsListProvider =
-    FutureProvider.family<List<Floor>, int?>((ref, buildingId) async {
+final adminFloorsListProvider = FutureProvider.family<List<Floor>, int?>((
+  ref,
+  buildingId,
+) async {
   if (buildingId == null) return const [];
   final res = await AdminRepository.instance.floors(
     buildingId: buildingId,
@@ -32,12 +36,15 @@ class AdminRoomManagementScreen extends ConsumerStatefulWidget {
   const AdminRoomManagementScreen({super.key});
 
   @override
-  ConsumerState<AdminRoomManagementScreen> createState() => _AdminRoomManagementScreenState();
+  ConsumerState<AdminRoomManagementScreen> createState() =>
+      _AdminRoomManagementScreenState();
 }
 
-class _AdminRoomManagementScreenState extends ConsumerState<AdminRoomManagementScreen> {
+class _AdminRoomManagementScreenState
+    extends ConsumerState<AdminRoomManagementScreen> {
   final _scrollController = ScrollController();
   final _searchCtrl = TextEditingController();
+  Timer? _searchDebounce;
   String _selectedStatus = 'ALL';
 
   @override
@@ -50,11 +57,13 @@ class _AdminRoomManagementScreenState extends ConsumerState<AdminRoomManagementS
   void dispose() {
     _scrollController.dispose();
     _searchCtrl.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       ref.read(adminRoomsProvider.notifier).fetchRooms();
     }
   }
@@ -70,15 +79,14 @@ class _AdminRoomManagementScreenState extends ConsumerState<AdminRoomManagementS
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_outline, size: 26),
-            onPressed: () => _showCreateRoomSheet(context),
+            onPressed: _openCreateRoomForm,
           ),
           const SizedBox(width: 8),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async {
-          ref.read(adminRoomsProvider.notifier).fetchRooms(refresh: true);
-        },
+        onRefresh: () =>
+            ref.read(adminRoomsProvider.notifier).fetchRooms(refresh: true),
         child: Column(
           children: [
             // ─── Search & Stats Bar ──────────────────────
@@ -90,20 +98,29 @@ class _AdminRoomManagementScreenState extends ConsumerState<AdminRoomManagementS
                   TextField(
                     controller: _searchCtrl,
                     decoration: InputDecoration(
-                      hintText: 'Tìm kiếm phòng theo số phòng...',
+                      hintText: 'Tìm theo số phòng, tòa nhà hoặc tầng...',
                       prefixIcon: const Icon(Icons.search),
                       suffixIcon: _searchCtrl.text.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear),
                               onPressed: () {
                                 _searchCtrl.clear();
-                                ref.read(adminRoomsProvider.notifier).updateSearch('');
+                                ref
+                                    .read(adminRoomsProvider.notifier)
+                                    .updateSearch('');
                               },
                             )
                           : null,
                     ),
                     onChanged: (v) {
-                      ref.read(adminRoomsProvider.notifier).updateSearch(v.trim());
+                      setState(() {});
+                      _searchDebounce?.cancel();
+                      _searchDebounce = Timer(
+                        const Duration(milliseconds: 350),
+                        () => ref
+                            .read(adminRoomsProvider.notifier)
+                            .updateSearch(v.trim()),
+                      );
                     },
                   ),
                   const SizedBox(height: 12),
@@ -120,6 +137,8 @@ class _AdminRoomManagementScreenState extends ConsumerState<AdminRoomManagementS
                         _buildFilterChip('OCCUPIED', 'Đang thuê'),
                         const SizedBox(width: 8),
                         _buildFilterChip('MAINTENANCE', 'Bảo trì'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('INACTIVE', 'Ngừng hoạt động'),
                       ],
                     ),
                   ),
@@ -133,36 +152,40 @@ class _AdminRoomManagementScreenState extends ConsumerState<AdminRoomManagementS
                   ? ListView.builder(
                       padding: const EdgeInsets.all(20),
                       itemCount: 5,
-                      itemBuilder: (context, index) => const CardShimmer(height: 110),
+                      itemBuilder: (context, index) =>
+                          const CardShimmer(height: 110),
                     )
                   : state.error != null
-                      ? ErrorState(
-                          message: 'Lỗi tải phòng: ${state.error}',
-                          onRetry: () => ref.read(adminRoomsProvider.notifier).fetchRooms(refresh: true),
-                        )
-                      : state.items.isEmpty
-                          ? const EmptyState(
-                              title: 'Không tìm thấy phòng nào',
-                              subtitle: 'Gõ tìm kiếm khác hoặc thêm phòng mới',
-                              icon: Icons.meeting_room_outlined,
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(20),
-                              itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == state.items.length) {
-                                  return const Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  );
-                                }
-                                final room = state.items[index];
-                                return _buildRoomCard(context, room);
-                              },
+                  ? ErrorState(
+                      message: 'Lỗi tải phòng: ${state.error}',
+                      onRetry: () => ref
+                          .read(adminRoomsProvider.notifier)
+                          .fetchRooms(refresh: true),
+                    )
+                  : state.items.isEmpty
+                  ? const EmptyState(
+                      title: 'Không tìm thấy phòng nào',
+                      subtitle: 'Gõ tìm kiếm khác hoặc thêm phòng mới',
+                      icon: Icons.meeting_room_outlined,
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(20),
+                      itemCount:
+                          state.items.length + (state.isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == state.items.length) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: CircularProgressIndicator(),
                             ),
+                          );
+                        }
+                        final room = state.items[index];
+                        return _buildRoomCard(context, room);
+                      },
+                    ),
             ),
           ],
         ),
@@ -171,7 +194,7 @@ class _AdminRoomManagementScreenState extends ConsumerState<AdminRoomManagementS
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         foregroundColor: AppColors.onPrimary,
         child: const Icon(Icons.add),
-        onPressed: () => _showCreateRoomSheet(context),
+        onPressed: _openCreateRoomForm,
       ),
     );
   }
@@ -191,63 +214,74 @@ class _AdminRoomManagementScreenState extends ConsumerState<AdminRoomManagementS
   }
 
   Widget _buildRoomCard(BuildContext context, Room room) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(4),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Phòng ${room.roomNumber}',
-              style: AppTextStyles.titleMd.copyWith(fontWeight: FontWeight.bold),
-            ),
-            StatusChip(status: room.status ?? 'AVAILABLE'),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.layers_outlined, size: 16, color: AppColors.outline),
-                const SizedBox(width: 4),
-                Text('Tầng ${room.floor ?? '—'} · ${room.building ?? '—'}', style: AppTextStyles.bodySm),
-                const SizedBox(width: 12),
-                const Icon(Icons.aspect_ratio, size: 16, color: AppColors.outline),
-                const SizedBox(width: 4),
-                Text('${room.area ?? 0} m²', style: AppTextStyles.bodySm),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Giá thuê: ${CurrencyFormatter.format(room.monthlyRent)}/tháng',
-              style: AppTextStyles.bodyMd.copyWith(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                fontWeight: FontWeight.bold,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: AppCard(
+        padding: EdgeInsets.zero,
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(16),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Phòng ${room.roomNumber}',
+                style: AppTextStyles.titleMd.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-          ],
+              StatusChip(status: room.status),
+            ],
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.layers_outlined,
+                    size: 16,
+                    color: AppColors.outline,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Tầng ${room.floor ?? '—'} · ${room.building ?? '—'}',
+                    style: AppTextStyles.bodySm,
+                  ),
+                  const SizedBox(width: 12),
+                  const Icon(
+                    Icons.aspect_ratio,
+                    size: 16,
+                    color: AppColors.outline,
+                  ),
+                  const SizedBox(width: 4),
+                  Text('${room.area ?? 0} m²', style: AppTextStyles.bodySm),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Giá thuê: ${CurrencyFormatter.format(room.monthlyRent)}/tháng',
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          onTap: () => context.push(AppRoutes.roomDetail(room.id)),
         ),
-        onTap: () => context.push(AppRoutes.roomDetail(room.id!)),
       ),
     );
   }
 
-  void _showCreateRoomSheet(BuildContext context) {
+  Future<void> _openCreateRoomForm() async {
+    final created = await context.push<bool>(AppRoutes.adminRoomForm);
+    if (created == true && mounted) {
+      await ref.read(adminRoomsProvider.notifier).fetchRooms(refresh: true);
+    }
+  }
+
+  void showCreateRoomSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -258,12 +292,17 @@ class _AdminRoomManagementScreenState extends ConsumerState<AdminRoomManagementS
       builder: (context) {
         return _CreateRoomForm(
           onSubmit: (req) async {
-            final error = await ref.read(adminRoomsProvider.notifier).createRoom(req);
+            final error = await ref
+                .read(adminRoomsProvider.notifier)
+                .createRoom(req);
             if (context.mounted) {
               Navigator.pop(context);
               if (error != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(error), backgroundColor: AppColors.error),
+                  SnackBar(
+                    content: Text(error),
+                    backgroundColor: AppColors.error,
+                  ),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -314,9 +353,6 @@ class _CreateRoomFormState extends ConsumerState<_CreateRoomForm> {
 
   @override
   Widget build(BuildContext context) {
-    final buildingsAsync = ref.watch(adminBuildingsListProvider);
-    final floorsAsync = ref.watch(adminFloorsListProvider(_buildingId));
-
     return Padding(
       padding: EdgeInsets.only(
         left: 24,
@@ -353,7 +389,9 @@ class _CreateRoomFormState extends ConsumerState<_CreateRoomForm> {
                   hintText: 'Ví dụ: 101, 202',
                 ),
                 keyboardType: TextInputType.text,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập số phòng' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Vui lòng nhập số phòng'
+                    : null,
               ),
               const SizedBox(height: 16),
 
@@ -384,7 +422,9 @@ class _CreateRoomFormState extends ConsumerState<_CreateRoomForm> {
                         hintText: 'Ví dụ: 25',
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập diện tích' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nhập diện tích'
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -396,7 +436,9 @@ class _CreateRoomFormState extends ConsumerState<_CreateRoomForm> {
                         hintText: 'Ví dụ: 3',
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập số người' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nhập số người'
+                          : null,
                     ),
                   ),
                 ],
@@ -411,7 +453,9 @@ class _CreateRoomFormState extends ConsumerState<_CreateRoomForm> {
                   hintText: 'Ví dụ: 3500000',
                 ),
                 keyboardType: TextInputType.number,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập giá thuê' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Vui lòng nhập giá thuê'
+                    : null,
               ),
               const SizedBox(height: 16),
 
@@ -435,12 +479,14 @@ class _CreateRoomFormState extends ConsumerState<_CreateRoomForm> {
                       widget.onSubmit(
                         RoomRequest(
                           roomNumber: _roomNoCtrl.text.trim(),
-                          floor: _floorId,
-                          building: 'Lumina Building',
-                          area: double.tryParse(_areaCtrl.text.trim()) ?? 0.0,
-                          monthlyRent: double.tryParse(_rentCtrl.text.trim()) ?? 0.0,
+                          buildingId: _buildingId ?? 1,
+                          floorId: _floorId ?? 1,
+                          areaM2: double.tryParse(_areaCtrl.text.trim()) ?? 0.0,
+                          defaultRent:
+                              double.tryParse(_rentCtrl.text.trim()) ?? 0.0,
+                          defaultDeposit:
+                              double.tryParse(_depositCtrl.text.trim()) ?? 0.0,
                           maxOccupants: int.tryParse(_maxCtrl.text.trim()) ?? 4,
-                          status: 'AVAILABLE',
                           description: _descCtrl.text.trim(),
                         ),
                       );

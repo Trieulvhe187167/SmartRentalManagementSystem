@@ -60,13 +60,13 @@ class AppColors {
   static const Color outlineVariant = Color(0xFFC3C6D7);
 
   // ─── Status colors (functional) ──────────────────────────
-  static const Color success = Color(0xFF006C4A);          // Green - Paid, Available
+  static const Color success = Color(0xFF006C4A); // Green - Paid, Available
   static const Color successLight = Color(0xFFE8FBF3);
-  static const Color warning = Color(0xFFF59E0B);          // Amber - Pending, Due soon
+  static const Color warning = Color(0xFFF59E0B); // Amber - Pending, Due soon
   static const Color warningLight = Color(0xFFFFF8E1);
-  static const Color danger = Color(0xFFBA1A1A);           // Red - Overdue, Expired
+  static const Color danger = Color(0xFFBA1A1A); // Red - Overdue, Expired
   static const Color dangerLight = Color(0xFFFFDAD6);
-  static const Color neutral = Color(0xFF64748B);          // Gray - Inactive
+  static const Color neutral = Color(0xFF64748B); // Gray - Inactive
   static const Color neutralLight = Color(0xFFF1F5F9);
 
   // ─── Status chip colors ──────────────────────────────────
@@ -96,6 +96,11 @@ class AppColors {
         return success;
       case 'OCCUPIED':
         return primaryContainer;
+      case 'MAINTENANCE':
+        return warning;
+      case 'INACTIVE':
+      case 'LOCKED':
+        return neutral;
       default:
         return neutral;
     }
@@ -116,6 +121,7 @@ class AppColors {
       case 'DRAFT':
       case 'PARTIALLY_PAID':
       case 'PENDING_APPROVAL':
+      case 'MAINTENANCE':
         return warningLight;
       case 'ISSUED':
       case 'PENDING':
@@ -124,6 +130,9 @@ class AppColors {
       case 'RECEIVED':
       case 'OCCUPIED':
         return primaryFixed;
+      case 'INACTIVE':
+      case 'LOCKED':
+        return neutralLight;
       default:
         return neutralLight;
     }

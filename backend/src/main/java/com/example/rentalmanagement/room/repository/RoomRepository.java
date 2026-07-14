@@ -64,6 +64,8 @@ import com.example.rentalmanagement.user.repository.*;
 
 public interface RoomRepository extends JpaRepository<Room, Long> {
     public boolean existsByBuildingIdAndRoomNumber(Long buildingId, String roomNumber);
+    public boolean existsByBuildingIdAndRoomNumberIgnoreCase(Long buildingId, String roomNumber);
+    public boolean existsByBuildingIdAndRoomNumberIgnoreCaseAndIdNot(Long buildingId, String roomNumber, Long id);
 
     @Query("""
             select r from Room r
@@ -71,7 +73,12 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
               and (:status is null or r.status = :status)
               and (:buildingId is null or r.building.id = :buildingId)
               and (:floorId is null or r.floor.id = :floorId)
-              and (:keyword is null or lower(r.roomNumber) like lower(concat('%', :keyword, '%')))
+              and (:keyword is null
+               or lower(r.roomNumber) like lower(concat('%', :keyword, '%'))
+               or lower(r.building.name) like lower(concat('%', :keyword, '%'))
+               or lower(r.building.code) like lower(concat('%', :keyword, '%'))
+               or lower(r.floor.name) like lower(concat('%', :keyword, '%'))
+               or str(r.floor.floorNumber) like concat('%', :keyword, '%'))
             """)
     public Page<Room> search(@Param("status") RoomStatus status, @Param("buildingId") Long buildingId, @Param("floorId") Long floorId, @Param("keyword") String keyword, Pageable pageable);
 

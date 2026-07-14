@@ -167,6 +167,15 @@ public class AuthService {
         users.findByUsername(request.username()).ifPresent(u -> {
             throw new BusinessException("Username already exists", "USER_USERNAME_EXISTS");
         });
+        if (users.existsByEmailIgnoreCase(request.email().trim())) {
+            throw new BusinessException("Email already exists", "USER_EMAIL_EXISTS");
+        }
+        if (users.existsByPhone(request.phone().trim())) {
+            throw new BusinessException("Phone number already exists", "USER_PHONE_EXISTS");
+        }
+        if (tenantProfiles.existsByIdentityNumberIgnoreCase(request.identityNumber().trim())) {
+            throw new BusinessException("Identity number already exists", "TENANT_IDENTITY_EXISTS");
+        }
         Role tenant = roles.findByCode("TENANT").orElseThrow(() -> new NotFoundException("Tenant role not found", "ROLE_NOT_FOUND"));
         User user = new User();
         user.username = request.username();
@@ -174,8 +183,8 @@ public class AuthService {
         user.role = tenant;
         user.status = UserStatus.ACTIVE;
         user.mustChangePassword = true;
-        user.phone = request.phone();
-        user.email = request.email();
+        user.phone = request.phone().trim();
+        user.email = request.email().trim().toLowerCase(Locale.ROOT);
         return UserResponse.from(users.save(user));
     }
 

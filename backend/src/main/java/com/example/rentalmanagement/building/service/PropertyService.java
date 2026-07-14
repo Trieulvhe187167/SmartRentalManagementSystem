@@ -143,7 +143,11 @@ public class PropertyService {
     @Transactional
     public Room saveRoom(RoomRequest request, Long id) {
         Room room = id == null ? new Room() : rooms.findById(id).orElseThrow(() -> new NotFoundException("Room not found", "ROOM_NOT_FOUND"));
-        if (id == null && rooms.existsByBuildingIdAndRoomNumber(request.buildingId(), request.roomNumber())) {
+        String roomNumber = request.roomNumber().trim();
+        boolean duplicate = id == null
+                ? rooms.existsByBuildingIdAndRoomNumberIgnoreCase(request.buildingId(), roomNumber)
+                : rooms.existsByBuildingIdAndRoomNumberIgnoreCaseAndIdNot(request.buildingId(), roomNumber, id);
+        if (duplicate) {
             throw new BusinessException("Room number already exists in building", "ROOM_EXISTS");
         }
         Building building = building(request.buildingId());
@@ -153,7 +157,7 @@ public class PropertyService {
         }
         room.building = building;
         room.floor = floor;
-        room.roomNumber = request.roomNumber();
+        room.roomNumber = roomNumber;
         room.areaM2 = request.areaM2();
         room.defaultRent = request.defaultRent();
         room.defaultDeposit = request.defaultDeposit();
@@ -199,18 +203,36 @@ public class PropertyService {
         if (!"TENANT".equals(user.roleName())) {
             throw new BusinessException("User must have TENANT role", "USER_NOT_TENANT");
         }
-        if (id == null && tenants.existsByIdentityNumber(request.identityNumber())) {
+        String identityNumber = request.identityNumber().trim().toUpperCase(Locale.ROOT);
+        boolean duplicateIdentity = id == null
+                ? tenants.existsByIdentityNumberIgnoreCase(identityNumber)
+                : tenants.existsByIdentityNumberIgnoreCaseAndIdNot(identityNumber, id);
+        if (duplicateIdentity) {
             throw new BusinessException("Identity number already exists", "TENANT_IDENTITY_EXISTS");
+        }
+        String identityType = request.identityType().trim().toUpperCase(Locale.ROOT);
+        if (("CCCD".equals(identityType) && !identityNumber.matches("[0-9]{12}"))
+                || ("CMND".equals(identityType) && !identityNumber.matches("[0-9]{9}"))
+                || ("PASSPORT".equals(identityType) && !identityNumber.matches("[A-Z0-9]{6,12}"))) {
+            throw new BusinessException("Identity number format is invalid", "TENANT_IDENTITY_INVALID");
+        }
+        String phone = request.phone() == null ? null : request.phone().trim();
+        String email = request.email() == null ? null : request.email().trim().toLowerCase(Locale.ROOT);
+        if (phone != null && users.existsByPhoneAndIdNot(phone, user.id)) {
+            throw new BusinessException("Phone number already exists", "USER_PHONE_EXISTS");
+        }
+        if (email != null && users.existsByEmailIgnoreCaseAndIdNot(email, user.id)) {
+            throw new BusinessException("Email already exists", "USER_EMAIL_EXISTS");
         }
         t.user = user;
         t.fullName = request.fullName();
         t.dateOfBirth = request.dateOfBirth();
-        t.identityType = request.identityType();
-        t.identityNumber = request.identityNumber();
+        t.identityType = identityType;
+        t.identityNumber = identityNumber;
         t.identityIssuedDate = request.identityIssuedDate();
         t.identityIssuedPlace = request.identityIssuedPlace();
-        t.user.phone = request.phone();
-        t.user.email = request.email();
+        t.user.phone = phone;
+        t.user.email = email;
         t.permanentAddress = request.permanentAddress();
         t.emergencyContactName = request.emergencyContactName();
         t.emergencyContactPhone = request.emergencyContactPhone();

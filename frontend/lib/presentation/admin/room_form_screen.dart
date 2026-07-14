@@ -6,17 +6,14 @@ import '../../core/constants/app_text_styles.dart';
 import '../../data/models/room_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../shared/widgets/loading_shimmer.dart';
+import '../shared/widgets/app_card.dart';
 import 'room_management_screen.dart';
 
 class AdminRoomFormScreen extends ConsumerStatefulWidget {
   final int? roomId;
   final Room? existingRoom;
 
-  const AdminRoomFormScreen({
-    super.key,
-    this.roomId,
-    this.existingRoom,
-  });
+  const AdminRoomFormScreen({super.key, this.roomId, this.existingRoom});
 
   @override
   ConsumerState<AdminRoomFormScreen> createState() =>
@@ -30,6 +27,7 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
   final _roomNumberCtrl = TextEditingController();
   final _areaCtrl = TextEditingController();
   final _rentCtrl = TextEditingController();
+  final _depositCtrl = TextEditingController();
   final _maxOccupantsCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
 
@@ -48,10 +46,13 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
     if (room != null) {
       _roomNumberCtrl.text = room.roomNumber;
       _areaCtrl.text = room.area != null ? room.area!.toStringAsFixed(0) : '';
-      _rentCtrl.text =
-          room.monthlyRent > 0 ? room.monthlyRent.toStringAsFixed(0) : '';
-      _maxOccupantsCtrl.text =
-          room.maxOccupants != null ? room.maxOccupants.toString() : '';
+      _rentCtrl.text = room.monthlyRent > 0
+          ? room.monthlyRent.toStringAsFixed(0)
+          : '';
+      _depositCtrl.text = room.defaultDeposit.toStringAsFixed(0);
+      _maxOccupantsCtrl.text = room.maxOccupants != null
+          ? room.maxOccupants.toString()
+          : '';
       _descCtrl.text = room.description ?? '';
       _selectedBuildingId = room.buildingId;
       _selectedFloorId = room.floorId;
@@ -64,6 +65,7 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
     _roomNumberCtrl.dispose();
     _areaCtrl.dispose();
     _rentCtrl.dispose();
+    _depositCtrl.dispose();
     _maxOccupantsCtrl.dispose();
     _descCtrl.dispose();
     super.dispose();
@@ -73,21 +75,15 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
     String label, {
     String? suffix,
     String? helper,
-  }) =>
-      InputDecoration(
-        labelText: label,
-        suffixText: suffix,
-        helperText: helper,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      );
+  }) => InputDecoration(
+    labelText: label,
+    suffixText: suffix,
+    helperText: helper,
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+  );
 
-  Widget _sectionHeader(
-    BuildContext context,
-    IconData icon,
-    String title,
-  ) =>
+  Widget _sectionHeader(BuildContext context, IconData icon, String title) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Row(
@@ -99,27 +95,10 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
         ),
       );
 
-  Widget _buildCard({required Widget child, EdgeInsets? margin}) => Container(
-        margin: margin ?? EdgeInsets.zero,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(10),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-          border: Border.all(
-            color: Theme.of(context).colorScheme.outlineVariant,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: child,
-        ),
-      );
+  Widget _buildCard({required Widget child, EdgeInsets? margin}) => Padding(
+    padding: margin ?? EdgeInsets.zero,
+    child: AppCard(padding: const EdgeInsets.all(20), child: child),
+  );
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -139,13 +118,12 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
     try {
       final req = RoomRequest(
         roomNumber: _roomNumberCtrl.text.trim(),
-        buildingId: _selectedBuildingId,
-        floorId: _selectedFloorId,
-        area: double.tryParse(_areaCtrl.text.replaceAll(',', '.')),
-        monthlyRent: double.tryParse(
-          _rentCtrl.text.replaceAll(',', '.').replaceAll('.', ''),
-        ),
-        maxOccupants: int.tryParse(_maxOccupantsCtrl.text),
+        buildingId: _selectedBuildingId!,
+        floorId: _selectedFloorId!,
+        areaM2: double.parse(_areaCtrl.text.trim().replaceAll(',', '.')),
+        defaultRent: _parseMoney(_rentCtrl.text),
+        defaultDeposit: _parseMoney(_depositCtrl.text),
+        maxOccupants: int.parse(_maxOccupantsCtrl.text.trim()),
         description: _descCtrl.text.trim().isEmpty
             ? null
             : _descCtrl.text.trim(),
@@ -167,9 +145,7 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _isEdit
-                  ? 'Cập nhật phòng thành công'
-                  : 'Thêm phòng thành công',
+              _isEdit ? 'Cập nhật phòng thành công' : 'Thêm phòng thành công',
             ),
             backgroundColor: AppColors.success,
           ),
@@ -179,16 +155,16 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi: $e'),
-            backgroundColor: AppColors.danger,
-          ),
+          SnackBar(content: Text('Lỗi: $e'), backgroundColor: AppColors.danger),
         );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
+
+  double _parseMoney(String value) =>
+      double.parse(value.trim().replaceAll('.', '').replaceAll(',', ''));
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +211,11 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _sectionHeader(context, Icons.home_outlined, 'Thông tin cơ bản'),
+                    _sectionHeader(
+                      context,
+                      Icons.home_outlined,
+                      'Thông tin cơ bản',
+                    ),
                     const Divider(height: 0),
                     const SizedBox(height: 20),
 
@@ -244,18 +224,20 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                       controller: _roomNumberCtrl,
                       decoration: _inputDecoration('Số phòng *'),
                       textInputAction: TextInputAction.next,
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty)
-                              ? 'Vui lòng nhập số phòng'
-                              : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Vui lòng nhập số phòng'
+                          : null,
                     ),
                     const SizedBox(height: 16),
 
                     // Dropdown Tòa nhà
                     buildingsAsync.when(
                       data: (buildings) => DropdownButtonFormField<int>(
-                        value: _selectedBuildingId != null &&
-                                buildings.any((b) => b.id == _selectedBuildingId)
+                        value:
+                            _selectedBuildingId != null &&
+                                buildings.any(
+                                  (b) => b.id == _selectedBuildingId,
+                                )
                             ? _selectedBuildingId
                             : null,
                         decoration: _inputDecoration('Tòa nhà *'),
@@ -289,8 +271,9 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                         onChanged: null,
                         hint: Text(
                           'Không tải được danh sách tòa',
-                          style: AppTextStyles.bodySm
-                              .copyWith(color: AppColors.danger),
+                          style: AppTextStyles.bodySm.copyWith(
+                            color: AppColors.danger,
+                          ),
                         ),
                       ),
                     ),
@@ -299,7 +282,8 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                     // Dropdown Tầng
                     floorsAsync.when(
                       data: (floors) => DropdownButtonFormField<int>(
-                        value: _selectedFloorId != null &&
+                        value:
+                            _selectedFloorId != null &&
                                 floors.any((f) => f.id == _selectedFloorId)
                             ? _selectedFloorId
                             : null,
@@ -312,24 +296,25 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                         isExpanded: true,
                         disabledHint: Text(
                           'Chọn tòa nhà trước',
-                          style: AppTextStyles.bodySm
-                              .copyWith(color: AppColors.outline),
+                          style: AppTextStyles.bodySm.copyWith(
+                            color: AppColors.outline,
+                          ),
                         ),
                         items: _selectedBuildingId == null
                             ? []
                             : floors
-                                .map(
-                                  (f) => DropdownMenuItem<int>(
-                                    value: f.id,
-                                    child: Text(
-                                      f.name != null && f.name!.isNotEmpty
-                                          ? f.name!
-                                          : 'Tầng ${f.floorNumber}',
-                                      overflow: TextOverflow.ellipsis,
+                                  .map(
+                                    (f) => DropdownMenuItem<int>(
+                                      value: f.id,
+                                      child: Text(
+                                        f.name != null && f.name!.isNotEmpty
+                                            ? f.name!
+                                            : 'Tầng ${f.floorNumber}',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
-                                )
-                                .toList(),
+                                  )
+                                  .toList(),
                         onChanged: _selectedBuildingId == null
                             ? null
                             : (val) {
@@ -346,8 +331,9 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                         onChanged: null,
                         hint: Text(
                           'Không tải được danh sách tầng',
-                          style: AppTextStyles.bodySm
-                              .copyWith(color: AppColors.danger),
+                          style: AppTextStyles.bodySm.copyWith(
+                            color: AppColors.danger,
+                          ),
                         ),
                       ),
                     ),
@@ -356,18 +342,23 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                     // Diện tích
                     TextFormField(
                       controller: _areaCtrl,
-                      decoration: _inputDecoration('Diện tích (m²)', suffix: 'm²'),
+                      decoration: _inputDecoration(
+                        'Diện tích (m²) *',
+                        suffix: 'm²',
+                      ),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
                       textInputAction: TextInputAction.next,
                       validator: (v) {
-                        if (v != null && v.trim().isNotEmpty) {
-                          final parsed =
-                              double.tryParse(v.trim().replaceAll(',', '.'));
-                          if (parsed == null || parsed <= 0) {
-                            return 'Diện tích không hợp lệ';
-                          }
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Vui lòng nhập diện tích';
+                        }
+                        final parsed = double.tryParse(
+                          v.trim().replaceAll(',', '.'),
+                        );
+                        if (parsed == null || parsed <= 0) {
+                          return 'Diện tích phải lớn hơn 0';
                         }
                         return null;
                       },
@@ -377,15 +368,16 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                     // Số người tối đa
                     TextFormField(
                       controller: _maxOccupantsCtrl,
-                      decoration: _inputDecoration('Số người tối đa'),
+                      decoration: _inputDecoration('Số người tối đa *'),
                       keyboardType: TextInputType.number,
                       textInputAction: TextInputAction.next,
                       validator: (v) {
-                        if (v != null && v.trim().isNotEmpty) {
-                          final parsed = int.tryParse(v.trim());
-                          if (parsed == null || parsed <= 0) {
-                            return 'Số người không hợp lệ';
-                          }
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Vui lòng nhập số người tối đa';
+                        }
+                        final parsed = int.tryParse(v.trim());
+                        if (parsed == null || parsed < 1) {
+                          return 'Số người phải từ 1 trở lên';
                         }
                         return null;
                       },
@@ -420,11 +412,35 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                         if (v == null || v.trim().isEmpty) {
                           return 'Vui lòng nhập giá thuê';
                         }
-                        final cleaned =
-                            v.trim().replaceAll('.', '').replaceAll(',', '');
+                        final cleaned = v
+                            .trim()
+                            .replaceAll('.', '')
+                            .replaceAll(',', '');
                         final parsed = double.tryParse(cleaned);
                         if (parsed == null || parsed <= 0) {
                           return 'Giá thuê không hợp lệ';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _depositCtrl,
+                      decoration: _inputDecoration(
+                        'Tiền đặt cọc (₫) *',
+                        helper: 'Nhập 0 nếu phòng không yêu cầu đặt cọc',
+                      ),
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.next,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Vui lòng nhập tiền đặt cọc';
+                        }
+                        final value = double.tryParse(
+                          v.trim().replaceAll('.', '').replaceAll(',', ''),
+                        );
+                        if (value == null || value < 0) {
+                          return 'Tiền đặt cọc không được âm';
                         }
                         return null;
                       },
@@ -494,6 +510,12 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                             selectedColor: AppColors.warning,
                             selectedBgColor: AppColors.warningLight,
                           ),
+                          _buildStatusChip(
+                            value: 'INACTIVE',
+                            label: 'Ngừng hoạt động',
+                            selectedColor: AppColors.neutral,
+                            selectedBgColor: AppColors.neutralLight,
+                          ),
                         ],
                       ),
                     ],
@@ -509,8 +531,9 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                        Theme.of(context).colorScheme.primary.withAlpha(120),
+                    disabledBackgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withAlpha(120),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

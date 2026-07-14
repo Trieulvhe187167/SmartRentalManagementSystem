@@ -65,7 +65,8 @@ class AppRoutes {
   static const adminMeterReadings = '/admin/meter-readings';
   static const adminRevenue = '/admin/revenue';
   static const adminMaintenance = '/admin/maintenance';
-  static const adminRoomForm = '/admin/rooms/form';
+  // Keep this outside /admin/rooms/:id so "form" is never parsed as a room id.
+  static const adminRoomForm = '/admin/room-form';
   static const adminTenantDetail = '/admin/tenants/:id';
   static const adminPaymentRecording = '/admin/payments/record';
   static const adminMaintenanceDetail = '/admin/maintenance/:id';
@@ -317,10 +318,14 @@ class TenantShell extends StatelessWidget {
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {
           switch (index) {
-            case 0: context.go(AppRoutes.tenantHome);
-            case 1: context.go(AppRoutes.tenantMaintenance);
-            case 2: context.go(AppRoutes.tenantNotifications);
-            case 3: context.go(AppRoutes.tenantProfile);
+            case 0:
+              context.go(AppRoutes.tenantHome);
+            case 1:
+              context.go(AppRoutes.tenantMaintenance);
+            case 2:
+              context.go(AppRoutes.tenantNotifications);
+            case 3:
+              context.go(AppRoutes.tenantProfile);
           }
         },
         destinations: const [
@@ -360,9 +365,16 @@ class AdminShell extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     int currentIndex = 0;
     if (location == AppRoutes.adminDashboard) currentIndex = 0;
-    if (location == AppRoutes.adminRooms || location == AppRoutes.adminTenants || location == AppRoutes.adminContracts) currentIndex = 1;
-    if (location == AppRoutes.adminInvoices || location == AppRoutes.adminMeterReadings) currentIndex = 2;
-    if (location == AppRoutes.adminRevenue || location == AppRoutes.adminMaintenance) currentIndex = 3;
+    if (location == AppRoutes.adminRooms ||
+        location == AppRoutes.adminTenants ||
+        location == AppRoutes.adminContracts)
+      currentIndex = 1;
+    if (location == AppRoutes.adminInvoices ||
+        location == AppRoutes.adminMeterReadings)
+      currentIndex = 2;
+    if (location == AppRoutes.adminRevenue ||
+        location == AppRoutes.adminMaintenance)
+      currentIndex = 3;
 
     return Scaffold(
       body: child,
@@ -370,10 +382,14 @@ class AdminShell extends StatelessWidget {
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {
           switch (index) {
-            case 0: context.go(AppRoutes.adminDashboard);
-            case 1: context.go(AppRoutes.adminRooms);
-            case 2: context.go(AppRoutes.adminInvoices);
-            case 3: context.go(AppRoutes.adminRevenue);
+            case 0:
+              context.go(AppRoutes.adminDashboard);
+            case 1:
+              context.go(AppRoutes.adminRooms);
+            case 2:
+              context.go(AppRoutes.adminInvoices);
+            case 3:
+              context.go(AppRoutes.adminRevenue);
           }
         },
         destinations: const [

@@ -65,4 +65,8 @@ import com.example.rentalmanagement.user.dto.*;
 public interface UserRepository extends JpaRepository<User, Long> {
     public Optional<User> findByUsername(String username);
     public Optional<User> findByEmail(String email);
+    public boolean existsByEmailIgnoreCase(String email);
+    public boolean existsByPhone(String phone);
+    public boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
+    public boolean existsByPhoneAndIdNot(String phone, Long id);
 }

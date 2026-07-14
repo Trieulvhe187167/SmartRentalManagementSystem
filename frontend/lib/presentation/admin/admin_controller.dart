@@ -4,14 +4,15 @@ import '../../data/models/admin_models.dart';
 import '../../data/models/contract_models.dart';
 import '../../data/models/invoice_models.dart';
 import '../../data/models/maintenance_models.dart';
-import '../../data/models/meter_reading_models.dart';
 import '../../data/models/room_models.dart';
 import '../../data/models/tenant_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../tenant/tenant_controller.dart'; // import PaginatedState
 
 // ─── Dashboard Providers ─────────────────────────────────
-final adminDashboardProvider = FutureProvider<AdminDashboardResponse>((ref) async {
+final adminDashboardProvider = FutureProvider<AdminDashboardResponse>((
+  ref,
+) async {
   return AdminRepository.instance.dashboardSummary();
 });
 
@@ -19,23 +20,28 @@ final adminRoomStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   return AdminRepository.instance.roomStats();
 });
 
-final adminRevenueSummaryProvider = FutureProvider<Map<String, double>>((ref) async {
+final adminRevenueSummaryProvider = FutureProvider<Map<String, double>>((
+  ref,
+) async {
   return AdminRepository.instance.revenueSummary();
 });
 
-final adminExpiringContractsProvider = FutureProvider<List<RentalContract>>((ref) async {
+final adminExpiringContractsProvider = FutureProvider<List<RentalContract>>((
+  ref,
+) async {
   return AdminRepository.instance.expiringContracts();
 });
 
-final adminNearestActiveContractsProvider = FutureProvider<List<RentalContract>>((ref) async {
-  final page = await AdminRepository.instance.contracts(
-    page: 0,
-    size: 3,
-    status: 'ACTIVE',
-    sort: 'endDate,asc',
-  );
-  return page.content;
-});
+final adminNearestActiveContractsProvider =
+    FutureProvider<List<RentalContract>>((ref) async {
+      final page = await AdminRepository.instance.contracts(
+        page: 0,
+        size: 3,
+        status: 'ACTIVE',
+        sort: 'endDate,asc',
+      );
+      return page.content;
+    });
 
 // ─── Admin Rooms Provider ────────────────────────────────
 class AdminRoomsNotifier extends StateNotifier<PaginatedState<Room>> {
@@ -45,6 +51,7 @@ class AdminRoomsNotifier extends StateNotifier<PaginatedState<Room>> {
 
   String _searchQuery = '';
   String? _statusFilter;
+  int _requestId = 0;
 
   void updateSearch(String query) {
     _searchQuery = query;
@@ -57,30 +64,40 @@ class AdminRoomsNotifier extends StateNotifier<PaginatedState<Room>> {
   }
 
   Future<void> fetchRooms({bool refresh = false}) async {
-    if (state.isLoading || state.isLoadingMore) return;
+    if (!refresh && (state.isLoading || state.isLoadingMore)) return;
     if (!refresh && !state.hasMore) return;
+
+    final requestId = refresh ? ++_requestId : _requestId;
+    final page = refresh ? 0 : state.currentPage;
 
     if (refresh) {
       state = state.copyWith(isLoading: true, currentPage: 0, items: []);
     } else {
-      state = state.copyWith(isLoadingMore: state.currentPage > 0, isLoading: state.currentPage == 0);
+      state = state.copyWith(
+        isLoadingMore: state.currentPage > 0,
+        isLoading: state.currentPage == 0,
+      );
     }
 
     try {
       final pageResponse = await AdminRepository.instance.rooms(
-        page: state.currentPage,
+        page: page,
         size: 20,
         keyword: _searchQuery.isEmpty ? null : _searchQuery,
         status: _statusFilter,
       );
+      if (requestId != _requestId) return;
       state = state.copyWith(
-        items: refresh ? pageResponse.content : [...state.items, ...pageResponse.content],
+        items: refresh
+            ? pageResponse.content
+            : [...state.items, ...pageResponse.content],
         isLoading: false,
         isLoadingMore: false,
         hasMore: pageResponse.hasNextPage,
-        currentPage: state.currentPage + 1,
+        currentPage: page + 1,
       );
     } catch (e) {
+      if (requestId != _requestId) return;
       state = state.copyWith(
         isLoading: false,
         isLoadingMore: false,
@@ -92,7 +109,7 @@ class AdminRoomsNotifier extends StateNotifier<PaginatedState<Room>> {
   Future<String?> createRoom(RoomRequest req) async {
     try {
       await AdminRepository.instance.createRoom(req);
-      fetchRooms(refresh: true);
+      await fetchRooms(refresh: true);
       return null;
     } catch (e) {
       return e.toString();
@@ -102,16 +119,18 @@ class AdminRoomsNotifier extends StateNotifier<PaginatedState<Room>> {
 
 final adminRoomsProvider =
     StateNotifierProvider<AdminRoomsNotifier, PaginatedState<Room>>((ref) {
-  return AdminRoomsNotifier();
-});
+      return AdminRoomsNotifier();
+    });
 
 // ─── Admin Tenants Provider ──────────────────────────────
-class AdminTenantsNotifier extends StateNotifier<PaginatedState<TenantProfile>> {
+class AdminTenantsNotifier
+    extends StateNotifier<PaginatedState<TenantProfile>> {
   AdminTenantsNotifier() : super(const PaginatedState()) {
     fetchTenants();
   }
 
   String _searchQuery = '';
+  int _requestId = 0;
 
   void updateSearch(String query) {
     _searchQuery = query;
@@ -119,29 +138,39 @@ class AdminTenantsNotifier extends StateNotifier<PaginatedState<TenantProfile>> 
   }
 
   Future<void> fetchTenants({bool refresh = false}) async {
-    if (state.isLoading || state.isLoadingMore) return;
+    if (!refresh && (state.isLoading || state.isLoadingMore)) return;
     if (!refresh && !state.hasMore) return;
+
+    final requestId = refresh ? ++_requestId : _requestId;
+    final page = refresh ? 0 : state.currentPage;
 
     if (refresh) {
       state = state.copyWith(isLoading: true, currentPage: 0, items: []);
     } else {
-      state = state.copyWith(isLoadingMore: state.currentPage > 0, isLoading: state.currentPage == 0);
+      state = state.copyWith(
+        isLoadingMore: state.currentPage > 0,
+        isLoading: state.currentPage == 0,
+      );
     }
 
     try {
       final pageResponse = await AdminRepository.instance.tenants(
-        page: state.currentPage,
+        page: page,
         size: 20,
         keyword: _searchQuery.isEmpty ? null : _searchQuery,
       );
+      if (requestId != _requestId) return;
       state = state.copyWith(
-        items: refresh ? pageResponse.content : [...state.items, ...pageResponse.content],
+        items: refresh
+            ? pageResponse.content
+            : [...state.items, ...pageResponse.content],
         isLoading: false,
         isLoadingMore: false,
         hasMore: pageResponse.hasNextPage,
-        currentPage: state.currentPage + 1,
+        currentPage: page + 1,
       );
     } catch (e) {
+      if (requestId != _requestId) return;
       state = state.copyWith(
         isLoading: false,
         isLoadingMore: false,
@@ -153,7 +182,7 @@ class AdminTenantsNotifier extends StateNotifier<PaginatedState<TenantProfile>> 
   Future<String?> createTenant(TenantRequest req) async {
     try {
       await AdminRepository.instance.createTenant(req);
-      fetchTenants(refresh: true);
+      await fetchTenants(refresh: true);
       return null;
     } catch (e) {
       return e.toString();
@@ -162,12 +191,15 @@ class AdminTenantsNotifier extends StateNotifier<PaginatedState<TenantProfile>> 
 }
 
 final adminTenantsProvider =
-    StateNotifierProvider<AdminTenantsNotifier, PaginatedState<TenantProfile>>((ref) {
-  return AdminTenantsNotifier();
-});
+    StateNotifierProvider<AdminTenantsNotifier, PaginatedState<TenantProfile>>((
+      ref,
+    ) {
+      return AdminTenantsNotifier();
+    });
 
 // ─── Admin Contracts Provider ────────────────────────────
-class AdminContractsNotifier extends StateNotifier<PaginatedState<RentalContract>> {
+class AdminContractsNotifier
+    extends StateNotifier<PaginatedState<RentalContract>> {
   AdminContractsNotifier() : super(const PaginatedState()) {
     fetchContracts();
   }
@@ -186,7 +218,10 @@ class AdminContractsNotifier extends StateNotifier<PaginatedState<RentalContract
     if (refresh) {
       state = state.copyWith(isLoading: true, currentPage: 0, items: []);
     } else {
-      state = state.copyWith(isLoadingMore: state.currentPage > 0, isLoading: state.currentPage == 0);
+      state = state.copyWith(
+        isLoadingMore: state.currentPage > 0,
+        isLoading: state.currentPage == 0,
+      );
     }
 
     try {
@@ -196,7 +231,9 @@ class AdminContractsNotifier extends StateNotifier<PaginatedState<RentalContract
         status: _statusFilter,
       );
       state = state.copyWith(
-        items: refresh ? pageResponse.content : [...state.items, ...pageResponse.content],
+        items: refresh
+            ? pageResponse.content
+            : [...state.items, ...pageResponse.content],
         isLoading: false,
         isLoadingMore: false,
         hasMore: pageResponse.hasNextPage,
@@ -236,9 +273,12 @@ class AdminContractsNotifier extends StateNotifier<PaginatedState<RentalContract
 }
 
 final adminContractsProvider =
-    StateNotifierProvider<AdminContractsNotifier, PaginatedState<RentalContract>>((ref) {
-  return AdminContractsNotifier();
-});
+    StateNotifierProvider<
+      AdminContractsNotifier,
+      PaginatedState<RentalContract>
+    >((ref) {
+      return AdminContractsNotifier();
+    });
 
 // ─── Admin Invoices Provider ─────────────────────────────
 class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
@@ -264,7 +304,10 @@ class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
     if (refresh) {
       state = state.copyWith(isLoading: true, currentPage: 0, items: []);
     } else {
-      state = state.copyWith(isLoadingMore: state.currentPage > 0, isLoading: state.currentPage == 0);
+      state = state.copyWith(
+        isLoadingMore: state.currentPage > 0,
+        isLoading: state.currentPage == 0,
+      );
     }
 
     try {
@@ -276,7 +319,9 @@ class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
         year: _year,
       );
       state = state.copyWith(
-        items: refresh ? pageResponse.content : [...state.items, ...pageResponse.content],
+        items: refresh
+            ? pageResponse.content
+            : [...state.items, ...pageResponse.content],
         isLoading: false,
         isLoadingMore: false,
         hasMore: pageResponse.hasNextPage,
@@ -310,7 +355,10 @@ class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
 
   Future<String?> issueInvoice(int id, String dueDate) async {
     try {
-      await AdminRepository.instance.issueInvoice(id, InvoiceIssueRequest(dueDate: dueDate));
+      await AdminRepository.instance.issueInvoice(
+        id,
+        InvoiceIssueRequest(dueDate: dueDate),
+      );
       fetchInvoices(refresh: true);
       return null;
     } catch (e) {
@@ -330,13 +378,16 @@ class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
 }
 
 final adminInvoicesProvider =
-    StateNotifierProvider<AdminInvoicesNotifier, PaginatedState<Invoice>>((ref) {
-  return AdminInvoicesNotifier();
-});
+    StateNotifierProvider<AdminInvoicesNotifier, PaginatedState<Invoice>>((
+      ref,
+    ) {
+      return AdminInvoicesNotifier();
+    });
 
 String _missingMeterReadingMessage(String message, int month, int year) {
-  final match = RegExp(r'room ([^,]+), service ([^,]+), period ([^,]+)')
-      .firstMatch(message);
+  final match = RegExp(
+    r'room ([^,]+), service ([^,]+), period ([^,]+)',
+  ).firstMatch(message);
   if (match == null) {
     return 'Thiếu chỉ số điện/nước kỳ $month/$year. Vui lòng nhập chỉ số trước khi tạo hóa đơn.';
   }
@@ -347,7 +398,8 @@ String _missingMeterReadingMessage(String message, int month, int year) {
 }
 
 // ─── Admin Maintenance Provider ──────────────────────────
-class AdminMaintenanceNotifier extends StateNotifier<PaginatedState<MaintenanceRequest>> {
+class AdminMaintenanceNotifier
+    extends StateNotifier<PaginatedState<MaintenanceRequest>> {
   AdminMaintenanceNotifier() : super(const PaginatedState()) {
     fetchRequests();
   }
@@ -366,7 +418,10 @@ class AdminMaintenanceNotifier extends StateNotifier<PaginatedState<MaintenanceR
     if (refresh) {
       state = state.copyWith(isLoading: true, currentPage: 0, items: []);
     } else {
-      state = state.copyWith(isLoadingMore: state.currentPage > 0, isLoading: state.currentPage == 0);
+      state = state.copyWith(
+        isLoadingMore: state.currentPage > 0,
+        isLoading: state.currentPage == 0,
+      );
     }
 
     try {
@@ -376,7 +431,9 @@ class AdminMaintenanceNotifier extends StateNotifier<PaginatedState<MaintenanceR
         status: _statusFilter,
       );
       state = state.copyWith(
-        items: refresh ? pageResponse.content : [...state.items, ...pageResponse.content],
+        items: refresh
+            ? pageResponse.content
+            : [...state.items, ...pageResponse.content],
         isLoading: false,
         isLoadingMore: false,
         hasMore: pageResponse.hasNextPage,
@@ -391,7 +448,11 @@ class AdminMaintenanceNotifier extends StateNotifier<PaginatedState<MaintenanceR
     }
   }
 
-  Future<String?> updateStatusAction(int id, String action, String notes) async {
+  Future<String?> updateStatusAction(
+    int id,
+    String action,
+    String notes,
+  ) async {
     try {
       if (action == 'RECEIVE') {
         await AdminRepository.instance.receiveRequest(id, notes);
@@ -411,6 +472,9 @@ class AdminMaintenanceNotifier extends StateNotifier<PaginatedState<MaintenanceR
 }
 
 final adminMaintenanceProvider =
-    StateNotifierProvider<AdminMaintenanceNotifier, PaginatedState<MaintenanceRequest>>((ref) {
-  return AdminMaintenanceNotifier();
-});
+    StateNotifierProvider<
+      AdminMaintenanceNotifier,
+      PaginatedState<MaintenanceRequest>
+    >((ref) {
+      return AdminMaintenanceNotifier();
+    });
