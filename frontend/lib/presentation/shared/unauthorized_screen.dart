@@ -25,14 +25,24 @@ class UnauthorizedScreen extends StatelessWidget {
                     color: AppColors.errorContainer,
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: Icon(Icons.lock_outline, size: 48, color: AppColors.error),
+                  child: Icon(
+                    Icons.lock_outline,
+                    size: 48,
+                    color: AppColors.error,
+                  ),
                 ),
                 const SizedBox(height: 24),
-                Text('Không có quyền truy cập', style: AppTextStyles.headlineSm, textAlign: TextAlign.center),
+                Text(
+                  'Không có quyền truy cập',
+                  style: AppTextStyles.headlineSm,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 12),
                 Text(
                   'Bạn không có quyền thực hiện thao tác này. Vui lòng liên hệ quản lý toà nhà.',
-                  style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),

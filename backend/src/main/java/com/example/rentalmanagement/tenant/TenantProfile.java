@@ -81,4 +81,6 @@ public class TenantProfile extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     public RecordStatus status = RecordStatus.ACTIVE;
+    @Transient
+    public String currentRoom;
 }

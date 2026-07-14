@@ -70,6 +70,7 @@ DROP TABLE IF EXISTS tenant_profiles;
 DROP TABLE IF EXISTS rooms;
 DROP TABLE IF EXISTS floors;
 DROP TABLE IF EXISTS buildings;
+DROP TABLE IF EXISTS password_reset_tokens;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS roles;
 
@@ -120,6 +121,25 @@ CREATE TABLE users (
         OR (is_deleted = TRUE AND deleted_at IS NOT NULL)
     )
 ) ENGINE=InnoDB;
+
+CREATE TABLE password_reset_tokens (
+    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id     BIGINT UNSIGNED NOT NULL,
+    token_hash  CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    expires_at  DATETIME(6) NOT NULL,
+    used_at     DATETIME(6) NULL,
+    created_at  DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    CONSTRAINT uq_password_reset_tokens_hash UNIQUE (token_hash),
+    CONSTRAINT fk_password_reset_tokens_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_password_reset_tokens_user
+    ON password_reset_tokens(user_id, used_at);
+
+CREATE INDEX idx_password_reset_tokens_expiry
+    ON password_reset_tokens(expires_at);
 
 -- ============================================================
 -- 2. Building, floor and room

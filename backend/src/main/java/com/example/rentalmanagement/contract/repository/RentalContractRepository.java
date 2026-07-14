@@ -66,9 +66,11 @@ public interface RentalContractRepository extends JpaRepository<RentalContract, 
     public boolean existsByContractCode(String contractCode);
     public boolean existsByRoomIdAndStatusAndIsDeletedFalse(Long roomId, ContractStatus status);
     public Optional<RentalContract> findFirstByPrimaryTenantUserIdAndStatusAndIsDeletedFalse(Long userId, ContractStatus status);
+    public Optional<RentalContract> findFirstByPrimaryTenantIdAndStatusAndIsDeletedFalse(Long tenantId, ContractStatus status);
     public Optional<RentalContract> findFirstByRoomIdAndStatusAndIsDeletedFalse(Long roomId, ContractStatus status);
     public Page<RentalContract> findByPrimaryTenantUserIdAndIsDeletedFalse(Long userId, Pageable pageable);
     public Page<RentalContract> findByPrimaryTenantIdAndIsDeletedFalse(Long tenantId, Pageable pageable);
+    public boolean existsByPrimaryTenantIdAndIsDeletedFalse(Long tenantId);
 
     @Query("""
             select c from RentalContract c

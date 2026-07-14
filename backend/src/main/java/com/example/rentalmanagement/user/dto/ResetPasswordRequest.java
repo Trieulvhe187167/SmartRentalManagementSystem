@@ -10,6 +10,7 @@ import java.io.*;
 import javax.crypto.*;
 
 import jakarta.validation.constraints.*;
+import com.example.rentalmanagement.auth.validation.ValidPassword;
 import com.example.rentalmanagement.common.api.*;
 import com.example.rentalmanagement.common.audit.*;
 import com.example.rentalmanagement.common.enums.*;
@@ -57,5 +58,5 @@ import com.example.rentalmanagement.tenant.repository.*;
 import com.example.rentalmanagement.user.*;
 import com.example.rentalmanagement.user.repository.*;
 
-public record ResetPasswordRequest(@NotBlank @Size(min = 8, max = 72) String newPassword) {
+public record ResetPasswordRequest(@NotBlank @ValidPassword String newPassword) {
 }

@@ -67,6 +67,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     public Page<Invoice> findByTenantProfileUserIdAndIsDeletedFalse(Long userId, Pageable pageable);
     public Page<Invoice> findByTenantProfileUserIdAndStatusInAndIsDeletedFalse(Long userId, Collection<InvoiceStatus> statuses, Pageable pageable);
     public Optional<Invoice> findByIdAndTenantProfileUserIdAndIsDeletedFalse(Long id, Long userId);
+    public boolean existsByTenantProfileIdAndIsDeletedFalse(Long tenantProfileId);
     public List<Invoice> findByStatusInAndDueDateBeforeAndIsDeletedFalse(Collection<InvoiceStatus> statuses, LocalDate date);
     public List<Invoice> findByStatusAndDueDateBetweenAndIsDeletedFalse(InvoiceStatus status, LocalDate from, LocalDate to);
 

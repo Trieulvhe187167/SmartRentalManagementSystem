@@ -1,31 +1,58 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:frontend/main.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/utils/password_validator.dart';
+import 'package:frontend/data/api/api_client.dart';
+import 'package:frontend/presentation/auth/reset_password_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const ProviderScope(child: LuminaResidentApp()));
+  group('PasswordValidator', () {
+    test('accepts a strong password', () {
+      expect(PasswordValidator.validateNewPassword('MatKhau123'), isNull);
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    test('rejects weak and reused passwords', () {
+      expect(PasswordValidator.validateNewPassword('OnlyLetters'), isNotNull);
+      expect(
+        PasswordValidator.validateNewPassword(
+          'Current123',
+          currentPassword: 'Current123',
+        ),
+        isNotNull,
+      );
+    });
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  test('auth session notifier emits an expiration event', () {
+    final notifier = AuthSessionNotifier();
+    var notifications = 0;
+    notifier.addListener(() => notifications++);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    notifier.sessionExpired();
+
+    expect(notifications, 1);
+  });
+
+  testWidgets('reset screen never displays the token', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: ResetPasswordScreen(initialToken: 'secret-reset-token'),
+        ),
+      ),
+    );
+
+    expect(find.text('Mã xác nhận'), findsNothing);
+    expect(find.textContaining('secret-reset-token'), findsNothing);
+    expect(find.text('Mật khẩu mới'), findsOneWidget);
+  });
+
+  testWidgets('reset screen rejects a link without a token', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: ResetPasswordScreen())),
+    );
+
+    expect(find.text('Liên kết đặt lại mật khẩu không hợp lệ'), findsOneWidget);
+    expect(find.text('Mã xác nhận'), findsNothing);
   });
 }

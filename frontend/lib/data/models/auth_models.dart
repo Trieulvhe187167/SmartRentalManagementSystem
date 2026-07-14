@@ -4,10 +4,7 @@ class LoginRequest {
 
   const LoginRequest({required this.username, required this.password});
 
-  Map<String, dynamic> toJson() => {
-        'username': username,
-        'password': password,
-      };
+  Map<String, dynamic> toJson() => {'username': username, 'password': password};
 }
 
 class LoginResponse {
@@ -40,13 +37,17 @@ class LoginResponse {
     final parsedUsername = json['username'] as String?;
 
     return LoginResponse(
-      accessToken: json['accessToken'] as String? ?? json['access_token'] as String? ?? '',
+      accessToken:
+          json['accessToken'] as String? ??
+          json['access_token'] as String? ??
+          '',
       tokenType: json['tokenType'] as String? ?? 'Bearer',
       userId: parsedUserId,
       username: parsedUsername,
       role: parsedRole,
       mustChangePassword: json['mustChangePassword'] as bool? ?? false,
-      user: nestedUser ??
+      user:
+          nestedUser ??
           UserResponse(
             id: parsedUserId,
             username: parsedUsername,
@@ -61,26 +62,7 @@ class ForgotPasswordRequest {
 
   const ForgotPasswordRequest({required this.usernameOrEmail});
 
-  Map<String, dynamic> toJson() => {
-        'usernameOrEmail': usernameOrEmail,
-      };
-}
-
-class ForgotPasswordResponse {
-  final String? resetToken;
-  final String? expiresAt;
-
-  const ForgotPasswordResponse({
-    this.resetToken,
-    this.expiresAt,
-  });
-
-  factory ForgotPasswordResponse.fromJson(Map<String, dynamic> json) {
-    return ForgotPasswordResponse(
-      resetToken: json['resetToken'] as String?,
-      expiresAt: json['expiresAt'] as String?,
-    );
-  }
+  Map<String, dynamic> toJson() => {'usernameOrEmail': usernameOrEmail};
 }
 
 class ResetForgottenPasswordRequest {
@@ -95,10 +77,10 @@ class ResetForgottenPasswordRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        'token': token,
-        'newPassword': newPassword,
-        'confirmPassword': confirmPassword,
-      };
+    'token': token,
+    'newPassword': newPassword,
+    'confirmPassword': confirmPassword,
+  };
 }
 
 class UserResponse {
@@ -139,16 +121,16 @@ class UserResponse {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'username': username,
-        'fullName': fullName,
-        'email': email,
-        'phone': phone,
-        'role': role,
-        'idNumber': idNumber,
-        'address': address,
-        'active': active,
-      };
+    'id': id,
+    'username': username,
+    'fullName': fullName,
+    'email': email,
+    'phone': phone,
+    'role': role,
+    'idNumber': idNumber,
+    'address': address,
+    'active': active,
+  };
 
   String get displayName => fullName ?? username ?? 'Người dùng';
   String get initials {
@@ -178,8 +160,8 @@ class ChangePasswordRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        'oldPassword': currentPassword,
-        'newPassword': newPassword,
-        'confirmPassword': confirmPassword,
-      };
+    'oldPassword': currentPassword,
+    'newPassword': newPassword,
+    'confirmPassword': confirmPassword,
+  };
 }

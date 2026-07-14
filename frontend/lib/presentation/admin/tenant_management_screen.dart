@@ -4,21 +4,22 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../data/models/tenant_models.dart';
-import '../../data/repositories/admin_repository.dart';
-import '../shared/widgets/app_card.dart';
 import '../shared/widgets/status_chip.dart';
 import '../shared/widgets/empty_state.dart';
 import '../shared/widgets/loading_shimmer.dart';
 import 'admin_controller.dart';
+import 'tenant_form_sheet.dart';
 
 class AdminTenantManagementScreen extends ConsumerStatefulWidget {
   const AdminTenantManagementScreen({super.key});
 
   @override
-  ConsumerState<AdminTenantManagementScreen> createState() => _AdminTenantManagementScreenState();
+  ConsumerState<AdminTenantManagementScreen> createState() =>
+      _AdminTenantManagementScreenState();
 }
 
-class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagementScreen> {
+class _AdminTenantManagementScreenState
+    extends ConsumerState<AdminTenantManagementScreen> {
   final _scrollController = ScrollController();
   final _searchCtrl = TextEditingController();
 
@@ -36,7 +37,8 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       ref.read(adminTenantsProvider.notifier).fetchTenants();
     }
   }
@@ -77,13 +79,17 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
                           icon: const Icon(Icons.clear),
                           onPressed: () {
                             _searchCtrl.clear();
-                            ref.read(adminTenantsProvider.notifier).updateSearch('');
+                            ref
+                                .read(adminTenantsProvider.notifier)
+                                .updateSearch('');
                           },
                         )
                       : null,
                 ),
                 onChanged: (v) {
-                  ref.read(adminTenantsProvider.notifier).updateSearch(v.trim());
+                  ref
+                      .read(adminTenantsProvider.notifier)
+                      .updateSearch(v.trim());
                 },
               ),
             ),
@@ -94,36 +100,40 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
                   ? ListView.builder(
                       padding: const EdgeInsets.all(20),
                       itemCount: 5,
-                      itemBuilder: (context, index) => const CardShimmer(height: 100),
+                      itemBuilder: (context, index) =>
+                          const CardShimmer(height: 100),
                     )
                   : state.error != null
-                      ? ErrorState(
-                          message: 'Lỗi tải danh sách khách: ${state.error}',
-                          onRetry: () => ref.read(adminTenantsProvider.notifier).fetchTenants(refresh: true),
-                        )
-                      : state.items.isEmpty
-                          ? const EmptyState(
-                              title: 'Không tìm thấy khách thuê nào',
-                              subtitle: 'Gõ từ khóa khác hoặc bấm + để thêm khách mới',
-                              icon: Icons.people_outline,
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(20),
-                              itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == state.items.length) {
-                                  return const Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  );
-                                }
-                                final tenant = state.items[index];
-                                return _buildTenantCard(context, tenant);
-                              },
+                  ? ErrorState(
+                      message: 'Lỗi tải danh sách khách: ${state.error}',
+                      onRetry: () => ref
+                          .read(adminTenantsProvider.notifier)
+                          .fetchTenants(refresh: true),
+                    )
+                  : state.items.isEmpty
+                  ? const EmptyState(
+                      title: 'Không tìm thấy khách thuê nào',
+                      subtitle: 'Gõ từ khóa khác hoặc bấm + để thêm khách mới',
+                      icon: Icons.people_outline,
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(20),
+                      itemCount:
+                          state.items.length + (state.isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == state.items.length) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: CircularProgressIndicator(),
                             ),
+                          );
+                        }
+                        final tenant = state.items[index];
+                        return _buildTenantCard(context, tenant);
+                      },
+                    ),
             ),
           ],
         ),
@@ -138,7 +148,8 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
   }
 
   Widget _buildTenantCard(BuildContext context, TenantProfile tenant) {
-    final active = tenant.active ?? false;
+    final chipStatus = _tenantChipStatus(tenant);
+    final chipLabel = _tenantChipLabel(tenant);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -152,11 +163,25 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              tenant.fullName ?? 'Không tên',
-              style: AppTextStyles.titleMd.copyWith(fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                tenant.fullName ?? 'Không tên',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.titleMd.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-            StatusChip(status: active ? 'ACTIVE' : 'EXPIRED', label: active ? 'Hoạt động' : 'Tạm ngưng'),
+            IconButton(
+              tooltip: 'Chỉnh sửa thông tin',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: tenant.id == null
+                  ? null
+                  : () => _showEditTenantSheet(context, tenant),
+            ),
+            StatusChip(status: chipStatus, label: chipLabel),
           ],
         ),
         subtitle: Column(
@@ -165,7 +190,11 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.phone_outlined, size: 16, color: AppColors.outline),
+                const Icon(
+                  Icons.phone_outlined,
+                  size: 16,
+                  color: AppColors.outline,
+                ),
                 const SizedBox(width: 6),
                 Text(tenant.phone ?? '—', style: AppTextStyles.bodySm),
               ],
@@ -173,13 +202,23 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
             const SizedBox(height: 4),
             Row(
               children: [
-                const Icon(Icons.meeting_room_outlined, size: 16, color: AppColors.outline),
+                const Icon(
+                  Icons.meeting_room_outlined,
+                  size: 16,
+                  color: AppColors.outline,
+                ),
                 const SizedBox(width: 6),
                 Text(
-                  tenant.currentRoom != null ? 'Phòng: ${tenant.currentRoom}' : 'Chưa nhận phòng',
+                  tenant.currentRoom != null
+                      ? 'Phòng: ${tenant.currentRoom}'
+                      : 'Chưa nhận phòng',
                   style: AppTextStyles.bodySm.copyWith(
-                    color: tenant.currentRoom != null ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: tenant.currentRoom != null ? FontWeight.bold : FontWeight.normal,
+                    color: tenant.currentRoom != null
+                        ? Theme.of(context).colorScheme.primaryContainer
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: tenant.currentRoom != null
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                 ),
               ],
@@ -192,6 +231,7 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
   }
 
   void _showTenantDetailSheet(BuildContext context, TenantProfile tenant) {
+    final rootContext = context;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -206,6 +246,12 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
           maxChildSize: 0.9,
           expand: false,
           builder: (context, scrollController) {
+            final accountStatus = tenant.userStatus?.toUpperCase();
+            final canLockAccount =
+                tenant.userId != null && accountStatus == 'ACTIVE';
+            final canUnlockAccount =
+                tenant.userId != null && accountStatus == 'LOCKED';
+
             return SingleChildScrollView(
               controller: scrollController,
               padding: const EdgeInsets.all(24),
@@ -226,8 +272,29 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(tenant.fullName ?? 'Khách thuê', style: AppTextStyles.headlineSm),
-                      StatusChip(status: (tenant.active ?? false) ? 'ACTIVE' : 'EXPIRED', label: (tenant.active ?? false) ? 'Hoạt động' : 'Tạm ngưng'),
+                      Expanded(
+                        child: Text(
+                          tenant.fullName ?? 'Khách thuê',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.headlineSm,
+                        ),
+                      ),
+                      IconButton.filledTonal(
+                        tooltip: 'Chỉnh sửa thông tin',
+                        onPressed: tenant.id == null
+                            ? null
+                            : () {
+                                Navigator.pop(context);
+                                _showEditTenantSheet(rootContext, tenant);
+                              },
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                      const SizedBox(width: 8),
+                      StatusChip(
+                        status: _tenantChipStatus(tenant),
+                        label: _tenantChipLabel(tenant),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -243,43 +310,443 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
                   const SizedBox(height: 12),
                   _buildDetailRow('Địa chỉ thường trú', tenant.address ?? '—'),
                   const SizedBox(height: 12),
-                  _buildDetailRow('Phòng đang ở', tenant.currentRoom ?? 'Chưa thuê phòng nào'),
+                  _buildDetailRow(
+                    'Phòng đang ở',
+                    tenant.currentRoom ?? 'Chưa thuê phòng nào',
+                  ),
                   const SizedBox(height: 12),
-                  _buildDetailRow('Ngày tham gia', DateFormatter.format(DateFormatter.tryParse(tenant.createdAt))),
-                  const SizedBox(height: 32),
-                  if (tenant.active ?? false)
+                  _buildDetailRow(
+                    'Ngày tham gia',
+                    DateFormatter.format(
+                      DateFormatter.tryParse(tenant.createdAt),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  Text('Tài khoản đăng nhập', style: AppTextStyles.titleSm),
+                  const SizedBox(height: 12),
+                  _buildDetailRow('Tên đăng nhập', tenant.username ?? '—'),
+                  const SizedBox(height: 12),
+                  _buildDetailRow(
+                    'Trạng thái tài khoản',
+                    _accountStatusLabel(tenant.userStatus),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: tenant.userId == null
+                        ? null
+                        : () => _showChangeUsernameDialog(context, tenant),
+                    icon: const Icon(Icons.person_outline),
+                    label: const Text('Đổi tên đăng nhập'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: tenant.userId == null
+                        ? null
+                        : () => _showResetPasswordDialog(context, tenant),
+                    icon: const Icon(Icons.password_outlined),
+                    label: const Text('Đặt lại mật khẩu'),
+                  ),
+                  if (canLockAccount) ...[
+                    const SizedBox(height: 12),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.danger,
-                        side: const BorderSide(color: AppColors.danger, width: 1.5),
+                        side: const BorderSide(
+                          color: AppColors.danger,
+                          width: 1.5,
+                        ),
                       ),
-                      onPressed: () async {
-                        try {
-                          await AdminRepository.instance.deactivateTenant(tenant.id!);
-                          ref.read(adminTenantsProvider.notifier).fetchTenants(refresh: true);
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tạm ngưng tài khoản khách thành công'), backgroundColor: AppColors.success),
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.pause_circle_outline),
-                      label: const Text('Tạm khóa khách thuê này'),
+                      onPressed: () => _lockTenantAccount(context, tenant),
+                      icon: const Icon(Icons.lock_outline),
+                      label: const Text('Khóa tài khoản đăng nhập'),
                     ),
+                  ] else if (canUnlockAccount) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () => _unlockTenantAccount(context, tenant),
+                      icon: const Icon(Icons.lock_open_outlined),
+                      label: const Text('Mở khóa tài khoản'),
+                    ),
+                  ],
+                  const SizedBox(height: 32),
+                  OutlinedButton.icon(
+                    onPressed: tenant.id == null
+                        ? null
+                        : () {
+                            Navigator.pop(context);
+                            _showEditTenantSheet(rootContext, tenant);
+                          },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Chỉnh sửa thông tin'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: tenant.id == null
+                        ? null
+                        : () async {
+                            final confirmed = await _confirmTenantAction(
+                              context: context,
+                              title: 'Lưu trữ khách thuê',
+                              message:
+                                  'Khách thuê sẽ bị ẩn khỏi danh sách mặc định, nhưng lịch sử hợp đồng và hóa đơn vẫn được giữ lại.',
+                              confirmLabel: 'Lưu trữ',
+                            );
+                            if (!confirmed || !context.mounted) return;
+                            await _runTenantAction(
+                              sheetContext: context,
+                              tenant: tenant,
+                              successMessage: 'Đã lưu trữ khách thuê',
+                              action: (id) => ref
+                                  .read(adminTenantsProvider.notifier)
+                                  .archiveTenant(id),
+                            );
+                          },
+                    icon: const Icon(Icons.archive_outlined),
+                    label: const Text('Lưu trữ khách thuê'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                      side: const BorderSide(
+                        color: AppColors.danger,
+                        width: 1.5,
+                      ),
+                    ),
+                    onPressed: tenant.id == null
+                        ? null
+                        : () async {
+                            final confirmed = await _confirmTenantAction(
+                              context: context,
+                              title: 'Xóa hồ sơ khách thuê',
+                              message:
+                                  'Chỉ xóa được khi khách chưa từng có hợp đồng hoặc hóa đơn. Thao tác này sẽ loại bỏ hồ sơ khách khỏi hệ thống.',
+                              confirmLabel: 'Xóa hồ sơ',
+                              confirmColor: AppColors.danger,
+                            );
+                            if (!confirmed || !context.mounted) return;
+                            await _runTenantAction(
+                              sheetContext: context,
+                              tenant: tenant,
+                              successMessage: 'Đã xóa hồ sơ khách thuê',
+                              action: (id) => ref
+                                  .read(adminTenantsProvider.notifier)
+                                  .deleteTenant(id),
+                            );
+                          },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Xóa hồ sơ khách thuê'),
+                  ),
                 ],
               ),
             );
           },
         );
       },
+    );
+  }
+
+  Future<void> _showEditTenantSheet(
+    BuildContext context,
+    TenantProfile tenant,
+  ) async {
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return TenantEditFormSheet(
+          tenant: tenant,
+          onSubmit: (req) async {
+            if (tenant.id == null) return 'Khách thuê không hợp lệ';
+            return ref
+                .read(adminTenantsProvider.notifier)
+                .updateTenant(tenant.id!, req);
+          },
+        );
+      },
+    );
+
+    if (updated == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cập nhật thông tin khách thuê thành công'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    }
+  }
+
+  Future<bool> _confirmTenantAction({
+    required BuildContext context,
+    required String title,
+    required String message,
+    required String confirmLabel,
+    Color? confirmColor,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            style: confirmColor == null
+                ? null
+                : ElevatedButton.styleFrom(backgroundColor: confirmColor),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  Future<void> _runTenantAction({
+    required BuildContext sheetContext,
+    required TenantProfile tenant,
+    required String successMessage,
+    required Future<String?> Function(int id) action,
+  }) async {
+    if (tenant.id == null) return;
+    final error = await action(tenant.id!);
+    if (!sheetContext.mounted) return;
+    final messenger = ScaffoldMessenger.of(sheetContext);
+    Navigator.pop(sheetContext);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(error ?? successMessage),
+        backgroundColor: error == null ? AppColors.success : AppColors.error,
+      ),
+    );
+  }
+
+  String _accountStatusLabel(String? status) {
+    return switch (status?.toUpperCase()) {
+      'ACTIVE' => 'Đang hoạt động',
+      'LOCKED' => 'Đang bị khóa',
+      'INACTIVE' => 'Không hoạt động',
+      _ => 'Chưa rõ',
+    };
+  }
+
+  String _tenantChipStatus(TenantProfile tenant) {
+    if (tenant.userStatus?.toUpperCase() == 'LOCKED') {
+      return 'LOCKED';
+    }
+    if (tenant.active == false || tenant.status?.toUpperCase() == 'INACTIVE') {
+      return 'INACTIVE';
+    }
+    return 'ACTIVE';
+  }
+
+  String _tenantChipLabel(TenantProfile tenant) {
+    if (tenant.userStatus?.toUpperCase() == 'LOCKED') {
+      return 'Tài khoản bị khóa';
+    }
+    if (tenant.active == false || tenant.status?.toUpperCase() == 'INACTIVE') {
+      return 'Đã lưu trữ';
+    }
+    return 'Hồ sơ hoạt động';
+  }
+
+  Future<void> _showChangeUsernameDialog(
+    BuildContext sheetContext,
+    TenantProfile tenant,
+  ) async {
+    if (tenant.userId == null) return;
+    final controller = TextEditingController(text: tenant.username ?? '');
+    final username = await showDialog<String>(
+      context: sheetContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Đổi tên đăng nhập'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Tên đăng nhập mới'),
+          textInputAction: TextInputAction.done,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isEmpty) return;
+              Navigator.pop(context, value);
+            },
+            child: const Text('Lưu'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (username == null || !sheetContext.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(sheetContext);
+    final error = await ref
+        .read(adminTenantsProvider.notifier)
+        .updateTenantUsername(tenant.userId!, username);
+    if (!sheetContext.mounted) return;
+    if (error == null) Navigator.pop(sheetContext);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(error ?? 'Đã đổi tên đăng nhập'),
+        backgroundColor: error == null ? AppColors.success : AppColors.error,
+      ),
+    );
+  }
+
+  Future<void> _showResetPasswordDialog(
+    BuildContext sheetContext,
+    TenantProfile tenant,
+  ) async {
+    if (tenant.userId == null) return;
+    final formKey = GlobalKey<FormState>();
+    final passwordCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final password = await showDialog<String>(
+      context: sheetContext,
+      builder: (context) => AlertDialog(
+        title: const Text('Đặt lại mật khẩu'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: passwordCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Mật khẩu tạm thời',
+                ),
+                validator: _passwordValidator,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: confirmCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Nhập lại mật khẩu',
+                ),
+                validator: (value) {
+                  if (value != passwordCtrl.text) {
+                    return 'Mật khẩu nhập lại không khớp';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() != true) return;
+              Navigator.pop(context, passwordCtrl.text);
+            },
+            child: const Text('Đặt lại'),
+          ),
+        ],
+      ),
+    );
+    passwordCtrl.dispose();
+    confirmCtrl.dispose();
+    if (password == null || !sheetContext.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(sheetContext);
+    final error = await ref
+        .read(adminTenantsProvider.notifier)
+        .resetTenantPassword(tenant.userId!, password);
+    if (!sheetContext.mounted) return;
+    if (error == null) Navigator.pop(sheetContext);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(error ?? 'Đã đặt lại mật khẩu tạm thời'),
+        backgroundColor: error == null ? AppColors.success : AppColors.error,
+      ),
+    );
+  }
+
+  String? _passwordValidator(String? value) {
+    final password = value ?? '';
+    if (password.length < 8 || password.length > 72) {
+      return 'Mật khẩu phải từ 8 đến 72 ký tự';
+    }
+    if (!RegExp(r'[A-Za-zÀ-ỹ]').hasMatch(password) ||
+        !RegExp(r'\d').hasMatch(password)) {
+      return 'Mật khẩu cần có chữ và số';
+    }
+    return null;
+  }
+
+  Future<void> _unlockTenantAccount(
+    BuildContext sheetContext,
+    TenantProfile tenant,
+  ) async {
+    if (tenant.userId == null) return;
+    final confirmed = await _confirmTenantAction(
+      context: sheetContext,
+      title: 'Mở khóa tài khoản',
+      message: 'Khách thuê sẽ đăng nhập lại được vào ứng dụng.',
+      confirmLabel: 'Mở khóa',
+    );
+    if (!confirmed || !sheetContext.mounted) return;
+    final messenger = ScaffoldMessenger.of(sheetContext);
+    final error = await ref
+        .read(adminTenantsProvider.notifier)
+        .unlockTenantAccount(tenant.userId!);
+    if (!sheetContext.mounted) return;
+    if (error == null) Navigator.pop(sheetContext);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(error ?? 'Đã mở khóa tài khoản'),
+        backgroundColor: error == null ? AppColors.success : AppColors.error,
+      ),
+    );
+  }
+
+  Future<void> _lockTenantAccount(
+    BuildContext sheetContext,
+    TenantProfile tenant,
+  ) async {
+    if (tenant.userId == null) return;
+    final confirmed = await _confirmTenantAction(
+      context: sheetContext,
+      title: 'Khóa tài khoản đăng nhập',
+      message:
+          'Khách thuê sẽ không thể đăng nhập vào ứng dụng cho đến khi admin mở khóa lại.',
+      confirmLabel: 'Khóa tài khoản',
+      confirmColor: AppColors.danger,
+    );
+    if (!confirmed || !sheetContext.mounted) return;
+    final messenger = ScaffoldMessenger.of(sheetContext);
+    final error = await ref
+        .read(adminTenantsProvider.notifier)
+        .lockTenantAccount(tenant.userId!);
+    if (!sheetContext.mounted) return;
+    if (error == null) Navigator.pop(sheetContext);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(error ?? 'Đã khóa tài khoản đăng nhập'),
+        backgroundColor: error == null ? AppColors.success : AppColors.error,
+      ),
     );
   }
 
@@ -291,7 +758,9 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
           width: 140,
           child: Text(
             label,
-            style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: AppTextStyles.bodyMd.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         Expanded(
@@ -315,12 +784,17 @@ class _AdminTenantManagementScreenState extends ConsumerState<AdminTenantManagem
       builder: (context) {
         return _CreateTenantForm(
           onSubmit: (req) async {
-            final error = await ref.read(adminTenantsProvider.notifier).createTenant(req);
+            final error = await ref
+                .read(adminTenantsProvider.notifier)
+                .createTenant(req);
             if (context.mounted) {
               Navigator.pop(context);
               if (error != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(error), backgroundColor: AppColors.error),
+                  SnackBar(
+                    content: Text(error),
+                    backgroundColor: AppColors.error,
+                  ),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -403,8 +877,12 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
               // Full name
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Họ và tên khách thuê'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập họ tên' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Họ và tên khách thuê',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Vui lòng nhập họ tên'
+                    : null,
               ),
               const SizedBox(height: 16),
 
@@ -414,9 +892,12 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _phoneCtrl,
-                      decoration: const InputDecoration(labelText: 'Số điện thoại'),
+                      decoration: const InputDecoration(
+                        labelText: 'Số điện thoại',
+                      ),
                       keyboardType: TextInputType.phone,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập SĐT' : null,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Nhập SĐT' : null,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -425,7 +906,8 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
                       controller: _emailCtrl,
                       decoration: const InputDecoration(labelText: 'Email'),
                       keyboardType: TextInputType.emailAddress,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập email' : null,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Nhập email' : null,
                     ),
                   ),
                 ],
@@ -438,20 +920,29 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _idNoCtrl,
-                      decoration: const InputDecoration(labelText: 'Số CMND/CCCD'),
+                      decoration: const InputDecoration(
+                        labelText: 'Số CMND/CCCD',
+                      ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập số CMND' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nhập số CMND'
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _idType,
-                      decoration: const InputDecoration(labelText: 'Loại giấy tờ'),
+                      decoration: const InputDecoration(
+                        labelText: 'Loại giấy tờ',
+                      ),
                       items: const [
                         DropdownMenuItem(value: 'CCCD', child: Text('CCCD')),
                         DropdownMenuItem(value: 'CMND', child: Text('CMND')),
-                        DropdownMenuItem(value: 'PASSPORT', child: Text('Hộ chiếu')),
+                        DropdownMenuItem(
+                          value: 'PASSPORT',
+                          child: Text('Hộ chiếu'),
+                        ),
                       ],
                       onChanged: (v) {
                         if (v != null) setState(() => _idType = v);
@@ -465,8 +956,12 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
               // Address
               TextFormField(
                 controller: _addrCtrl,
-                decoration: const InputDecoration(labelText: 'Địa chỉ thường trú'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập địa chỉ thường trú' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Địa chỉ thường trú',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Nhập địa chỉ thường trú'
+                    : null,
               ),
               const SizedBox(height: 24),
               const Divider(),
@@ -481,8 +976,12 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
                   Expanded(
                     child: TextFormField(
                       controller: _userCtrl,
-                      decoration: const InputDecoration(labelText: 'Tên đăng nhập'),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập username' : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên đăng nhập',
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nhập username'
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 16),

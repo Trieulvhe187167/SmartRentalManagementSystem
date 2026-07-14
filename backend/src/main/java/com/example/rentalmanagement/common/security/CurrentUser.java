@@ -102,6 +102,6 @@ public class CurrentUser {
     }
 
     public Long userId() {
-        return requireUser().id;
+        return requireUser().getId();
     }
 }

@@ -59,7 +59,18 @@ import com.example.rentalmanagement.user.repository.*;
 
 public record UserResponse(Long id, String username, String role, UserStatus status, boolean mustChangePassword, String fullName, String phone, String email, String idNumber, String address) {
     public static UserResponse from(User user) {
-        return new UserResponse(user.id, user.username, user.roleName(), user.status, user.mustChangePassword, null, user.phone, user.email, null, null);
+        return new UserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.roleName(),
+                user.getStatus(),
+                user.isMustChangePassword(),
+                null,
+                user.getPhone(),
+                user.getEmail(),
+                null,
+                null
+        );
     }
 
     public static UserResponse from(User user, TenantProfile profile) {
@@ -67,14 +78,14 @@ public record UserResponse(Long id, String username, String role, UserStatus sta
             return from(user);
         }
         return new UserResponse(
-                user.id,
-                user.username,
+                user.getId(),
+                user.getUsername(),
                 user.roleName(),
-                user.status,
-                user.mustChangePassword,
+                user.getStatus(),
+                user.isMustChangePassword(),
                 profile.fullName,
-                user.phone,
-                user.email,
+                user.getPhone(),
+                user.getEmail(),
                 profile.identityNumber,
                 profile.permanentAddress
         );

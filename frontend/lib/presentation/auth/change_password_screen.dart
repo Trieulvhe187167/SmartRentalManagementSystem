@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
+import '../../core/utils/password_validator.dart';
 import 'auth_controller.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
 
   @override
-  ConsumerState<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+  ConsumerState<ChangePasswordScreen> createState() =>
+      _ChangePasswordScreenState();
 }
 
 class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
@@ -34,7 +36,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     setState(() => _loading = true);
     FocusScope.of(context).unfocus();
 
-    final error = await ref.read(authControllerProvider.notifier).changePassword(
+    final error = await ref
+        .read(authControllerProvider.notifier)
+        .changePassword(
           currentPassword: _currentCtrl.text,
           newPassword: _newCtrl.text,
           confirmPassword: _confirmCtrl.text,
@@ -84,7 +88,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer.withAlpha(25),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer.withAlpha(25),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
@@ -99,7 +105,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     Text(
                       'Vui lòng nhập mật khẩu hiện tại và mật khẩu mới để cập nhật bảo mật cho tài khoản của bạn.',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -113,8 +121,11 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 label: 'Mật khẩu hiện tại',
                 prefixIcon: Icons.lock_outline,
                 obscure: _obscureCurrent,
-                onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
-                validator: (v) => (v == null || v.isEmpty) ? 'Vui lòng nhập mật khẩu hiện tại' : null,
+                onToggle: () =>
+                    setState(() => _obscureCurrent = !_obscureCurrent),
+                validator: (v) => (v == null || v.isEmpty)
+                    ? 'Vui lòng nhập mật khẩu hiện tại'
+                    : null,
               ),
               const SizedBox(height: 20),
 
@@ -126,10 +137,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 obscure: _obscureNew,
                 onToggle: () => setState(() => _obscureNew = !_obscureNew),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu mới';
-                  if (v.length < 8) return 'Mật khẩu mới phải có ít nhất 8 ký tự';
-                  // Simple password rule regex validation if needed
-                  return null;
+                  return PasswordValidator.validateNewPassword(
+                    v,
+                    currentPassword: _currentCtrl.text,
+                  );
                 },
               ),
               const SizedBox(height: 6),
@@ -137,7 +148,11 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, size: 16, color: AppColors.outline),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.outline,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -158,10 +173,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 label: 'Xác nhận mật khẩu mới',
                 prefixIcon: Icons.verified_user_outlined,
                 obscure: _obscureConfirm,
-                onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                onToggle: () =>
+                    setState(() => _obscureConfirm = !_obscureConfirm),
                 validator: (v) {
-                  if (v != _newCtrl.text) return 'Mật khẩu xác nhận không khớp';
-                  return null;
+                  return PasswordValidator.validateConfirmation(
+                    v,
+                    _newCtrl.text,
+                  );
                 },
               ),
               const SizedBox(height: 36),
@@ -175,9 +193,15 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
-                      : const Text('Cập nhật mật khẩu', style: TextStyle(fontSize: 16)),
+                      : const Text(
+                          'Cập nhật mật khẩu',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
               ),
             ],
@@ -202,7 +226,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         labelText: label,
         prefixIcon: Icon(prefixIcon),
         suffixIcon: IconButton(
-          icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+          icon: Icon(
+            obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          ),
           onPressed: onToggle,
         ),
       ),

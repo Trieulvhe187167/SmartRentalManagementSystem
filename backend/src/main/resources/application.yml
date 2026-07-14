@@ -2,8 +2,22 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: rental-management-api
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/rental_management_mvp?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${DB_USERNAME:root}
@@ -17,6 +31,11 @@ spring:
         format_sql: true
         jdbc:
           time_zone: UTC
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
   jackson:
     visibility:
       field: any
@@ -30,6 +49,10 @@ app:
   bootstrap:
     admin-username: ${BOOTSTRAP_ADMIN_USERNAME:admin}
     admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:Admin@123}
+  password-reset:
+    mail-enabled: ${PASSWORD_RESET_MAIL_ENABLED:false}
+    frontend-reset-url: ${PASSWORD_RESET_FRONTEND_URL:http://localhost:3000/#/reset-password}
+    from-address: ${PASSWORD_RESET_FROM_ADDRESS:no-reply@lumina.local}
 
 springdoc:
   swagger-ui:

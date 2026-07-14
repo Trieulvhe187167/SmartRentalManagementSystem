@@ -32,7 +32,7 @@ class AppCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(title!, style: AppTextStyles.titleMd),
-                if (trailing != null) trailing!,
+                ?trailing,
               ],
             ),
             const SizedBox(height: 12),
@@ -52,12 +52,19 @@ class AppCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: backgroundColor ?? Theme.of(context).colorScheme.surfaceContainerLowest,
+        color:
+            backgroundColor ??
+            Theme.of(context).colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant, width: 1),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(8),
+            color: Theme.of(context).colorScheme.shadow.withAlpha(
+              Theme.of(context).brightness == Brightness.dark ? 48 : 8,
+            ),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),

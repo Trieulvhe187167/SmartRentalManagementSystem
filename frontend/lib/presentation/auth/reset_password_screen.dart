@@ -3,42 +3,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
+import '../../core/utils/password_validator.dart';
 import 'auth_controller.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   final String? initialToken;
   final String? username;
 
-  const ResetPasswordScreen({
-    super.key,
-    this.initialToken,
-    this.username,
-  });
+  const ResetPasswordScreen({super.key, this.initialToken, this.username});
 
   @override
-  ConsumerState<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  ConsumerState<ResetPasswordScreen> createState() =>
+      _ResetPasswordScreenState();
 }
 
 class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _tokenCtrl;
   final _newPasswordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
   bool _loading = false;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
 
-  bool get _hasInitialToken => widget.initialToken?.trim().isNotEmpty ?? false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tokenCtrl = TextEditingController(text: widget.initialToken);
-  }
+  bool get _hasToken => widget.initialToken?.trim().isNotEmpty ?? false;
 
   @override
   void dispose() {
-    _tokenCtrl.dispose();
     _newPasswordCtrl.dispose();
     _confirmPasswordCtrl.dispose();
     super.dispose();
@@ -52,7 +42,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     final error = await ref
         .read(authControllerProvider.notifier)
         .resetForgottenPassword(
-          token: _tokenCtrl.text.trim(),
+          token: widget.initialToken!.trim(),
           newPassword: _newPasswordCtrl.text,
           confirmPassword: _confirmPasswordCtrl.text,
         );
@@ -62,10 +52,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error),
-          backgroundColor: AppColors.error,
-        ),
+        SnackBar(content: Text(error), backgroundColor: AppColors.error),
       );
       return;
     }
@@ -83,6 +70,46 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_hasToken) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Đặt lại mật khẩu')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.link_off_outlined,
+                  size: 56,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Liên kết đặt lại mật khẩu không hợp lệ',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.titleLg,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Hãy yêu cầu một liên kết mới từ màn hình đăng nhập.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => context.go('/forgot-password'),
+                  child: const Text('Yêu cầu liên kết mới'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -107,7 +134,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer.withAlpha(25),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer.withAlpha(25),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
@@ -124,7 +153,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                           ? 'Thiết lập mật khẩu mới cho tài khoản "${widget.username}".'
                           : 'Thiết lập mật khẩu truy cập mới.',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -132,22 +163,6 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               const SizedBox(height: 32),
 
               // ─── Input Form Fields ────────────────────────
-              if (!_hasInitialToken) ...[
-                TextFormField(
-                  controller: _tokenCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Mã xác nhận',
-                    prefixIcon: Icon(Icons.vpn_key_outlined),
-                  ),
-                  textInputAction: TextInputAction.next,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Vui lòng nhập mã xác nhận';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-              ],
-
               // New Password
               _buildPasswordField(
                 controller: _newPasswordCtrl,
@@ -156,9 +171,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                 obscure: _obscureNew,
                 onToggle: () => setState(() => _obscureNew = !_obscureNew),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'Vui lòng nhập mật khẩu mới';
-                  if (v.length < 8) return 'Mật khẩu mới phải có ít nhất 8 ký tự';
-                  return null;
+                  return PasswordValidator.validateNewPassword(v);
                 },
               ),
               const SizedBox(height: 6),
@@ -166,7 +179,11 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, size: 16, color: AppColors.outline),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.outline,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -187,10 +204,13 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                 label: 'Xác nhận mật khẩu mới',
                 prefixIcon: Icons.verified_user_outlined,
                 obscure: _obscureConfirm,
-                onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                onToggle: () =>
+                    setState(() => _obscureConfirm = !_obscureConfirm),
                 validator: (v) {
-                  if (v != _newPasswordCtrl.text) return 'Mật khẩu xác nhận không khớp';
-                  return null;
+                  return PasswordValidator.validateConfirmation(
+                    v,
+                    _newPasswordCtrl.text,
+                  );
                 },
               ),
               const SizedBox(height: 36),
@@ -204,9 +224,15 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
-                      : const Text('Đặt lại mật khẩu', style: TextStyle(fontSize: 16)),
+                      : const Text(
+                          'Đặt lại mật khẩu',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
               ),
             ],
@@ -231,7 +257,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
         labelText: label,
         prefixIcon: Icon(prefixIcon),
         suffixIcon: IconButton(
-          icon: Icon(obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+          icon: Icon(
+            obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          ),
           onPressed: onToggle,
         ),
       ),

@@ -9,7 +9,8 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
@@ -45,28 +46,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       return;
     }
 
-    final token = result.resetToken?.trim();
-    if (token == null || token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không tìm thấy tài khoản đang hoạt động với thông tin này.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Yêu cầu khôi phục mật khẩu thành công!'),
+        content: Text(
+          'Hướng dẫn đặt lại mật khẩu đã được gửi đến email đăng ký.',
+        ),
         backgroundColor: AppColors.success,
       ),
     );
-
-    context.push(
-      '/reset-password?username=${Uri.encodeComponent(_identifierCtrl.text.trim())}',
-      extra: token,
-    );
+    context.go('/login');
   }
 
   @override
@@ -95,7 +83,9 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer.withAlpha(25),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer.withAlpha(25),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Icon(
@@ -105,12 +95,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text('Tìm tài khoản của bạn', style: AppTextStyles.headlineSm),
+                    Text(
+                      'Tìm tài khoản của bạn',
+                      style: AppTextStyles.headlineSm,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       'Vui lòng nhập tên đăng nhập hoặc địa chỉ email đã đăng ký để bắt đầu khôi phục mật khẩu.',
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -144,7 +139,10 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Text('Tiếp tục', style: TextStyle(fontSize: 16)),
                 ),
