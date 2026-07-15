@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
@@ -47,9 +48,11 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
       _roomNumberCtrl.text = room.roomNumber;
       _areaCtrl.text = room.area != null ? room.area!.toStringAsFixed(0) : '';
       _rentCtrl.text = room.monthlyRent > 0
-          ? room.monthlyRent.toStringAsFixed(0)
+          ? _formatMoneyDigits(room.monthlyRent.toStringAsFixed(0))
           : '';
-      _depositCtrl.text = room.defaultDeposit.toStringAsFixed(0);
+      _depositCtrl.text = _formatMoneyDigits(
+        room.defaultDeposit.toStringAsFixed(0),
+      );
       _maxOccupantsCtrl.text = room.maxOccupants != null
           ? room.maxOccupants.toString()
           : '';
@@ -166,10 +169,527 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
   double _parseMoney(String value) =>
       double.parse(value.trim().replaceAll('.', '').replaceAll(',', ''));
 
+  String _formatMoneyDigits(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '';
+    return digits.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.');
+  }
+
+  TextInputFormatter get _moneyFormatter =>
+      TextInputFormatter.withFunction((oldValue, newValue) {
+        final formatted = _formatMoneyDigits(newValue.text);
+        return TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
+      });
+
+  Widget _buildEditScreen(
+    AsyncValue<List<Building>> buildingsAsync,
+    AsyncValue<List<Floor>> floorsAsync,
+  ) {
+    const pageBackground = Color(0xFFF6F7FC);
+    const blue = Color(0xFF2563EB);
+
+    return Scaffold(
+      backgroundColor: pageBackground,
+      appBar: AppBar(
+        toolbarHeight: 48,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leadingWidth: 38,
+        leading: IconButton(
+          padding: EdgeInsets.zero,
+          icon: const Icon(Icons.arrow_back, size: 19),
+          onPressed: () => context.pop(),
+        ),
+        titleSpacing: 0,
+        title: Text(
+          'Chỉnh sửa Phòng ${widget.existingRoom?.roomNumber ?? ''}',
+          style: AppTextStyles.titleSm.copyWith(
+            color: const Color(0xFF1E293B),
+            fontSize: 13,
+          ),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Lưu thay đổi',
+            onPressed: _isSubmitting ? null : _submit,
+            icon: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check_rounded, color: blue, size: 20),
+          ),
+          const SizedBox(width: 2),
+        ],
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: Color(0xFFE9ECF3)),
+        ),
+      ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _editCard(
+                icon: Icons.home_outlined,
+                title: 'Thông tin cơ bản',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _editLabel('Số phòng', required: true),
+                    const SizedBox(height: 5),
+                    TextFormField(
+                      controller: _roomNumberCtrl,
+                      decoration: _compactDecoration(),
+                      textInputAction: TextInputAction.next,
+                      validator: (value) =>
+                          value == null || value.trim().isEmpty
+                          ? 'Vui lòng nhập số phòng'
+                          : null,
+                    ),
+                    const SizedBox(height: 14),
+                    _editLabel('Tòa nhà', required: true),
+                    const SizedBox(height: 5),
+                    buildingsAsync.when(
+                      data: (buildings) => DropdownButtonFormField<int>(
+                        initialValue:
+                            buildings.any((b) => b.id == _selectedBuildingId)
+                            ? _selectedBuildingId
+                            : null,
+                        decoration: _compactDecoration(),
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                        items: buildings
+                            .map(
+                              (building) => DropdownMenuItem<int>(
+                                value: building.id,
+                                child: Text(
+                                  building.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedBuildingId = value;
+                            _selectedFloorId = null;
+                          });
+                          ref.invalidate(adminFloorsListProvider(value));
+                        },
+                        validator: (value) =>
+                            value == null ? 'Vui lòng chọn tòa nhà' : null,
+                      ),
+                      loading: () => const CardShimmer(height: 42),
+                      error: (_, _) => const Text(
+                        'Không tải được danh sách tòa nhà',
+                        style: TextStyle(color: AppColors.danger, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _editLabel('Tầng', required: true),
+                              const SizedBox(height: 5),
+                              floorsAsync.when(
+                                data: (floors) => DropdownButtonFormField<int>(
+                                  initialValue:
+                                      floors.any(
+                                        (floor) => floor.id == _selectedFloorId,
+                                      )
+                                      ? _selectedFloorId
+                                      : null,
+                                  decoration: _compactDecoration(),
+                                  isExpanded: true,
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_down,
+                                    size: 18,
+                                  ),
+                                  items: floors
+                                      .map(
+                                        (floor) => DropdownMenuItem<int>(
+                                          value: floor.id,
+                                          child: Text(
+                                            floor.name?.isNotEmpty == true
+                                                ? floor.name!
+                                                : 'Tầng ${floor.floorNumber}',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (value) =>
+                                      setState(() => _selectedFloorId = value),
+                                  validator: (value) => value == null
+                                      ? 'Vui lòng chọn tầng'
+                                      : null,
+                                ),
+                                loading: () => const CardShimmer(height: 42),
+                                error: (_, _) => const SizedBox(
+                                  height: 42,
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.error_outline,
+                                      color: AppColors.danger,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _editLabel('Diện tích (m²)'),
+                              const SizedBox(height: 5),
+                              TextFormField(
+                                controller: _areaCtrl,
+                                decoration: _compactDecoration(suffix: 'm²'),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                validator: _validateArea,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _editLabel('Số người tối đa'),
+                    const SizedBox(height: 5),
+                    TextFormField(
+                      controller: _maxOccupantsCtrl,
+                      decoration: _compactDecoration(
+                        prefix: const Icon(Icons.person_outline, size: 17),
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: _validateMaxOccupants,
+                    ),
+                  ],
+                ),
+              ),
+              _editCard(
+                icon: Icons.attach_money_rounded,
+                title: 'Giá thuê',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _editLabel('Giá thuê hàng tháng (đ)', required: true),
+                    const SizedBox(height: 5),
+                    TextFormField(
+                      controller: _rentCtrl,
+                      decoration: _compactDecoration(suffix: 'đ'),
+                      style: AppTextStyles.bodyMd.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
+                      ),
+                      inputFormatters: [_moneyFormatter],
+                      keyboardType: TextInputType.number,
+                      validator: _validateRent,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Nhập số tiền bằng đồng Việt Nam',
+                      style: AppTextStyles.labelSm.copyWith(
+                        color: const Color(0xFF64748B),
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _editCard(
+                icon: Icons.description_outlined,
+                title: 'Mô tả (tùy chọn)',
+                child: TextFormField(
+                  controller: _descCtrl,
+                  minLines: 3,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.newline,
+                  decoration: _compactDecoration(
+                    hint: 'Nhập mô tả về phòng',
+                    verticalPadding: 12,
+                  ),
+                ),
+              ),
+              _editCard(
+                icon: Icons.toggle_on_outlined,
+                title: 'Trạng thái phòng',
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _editStatusOption(
+                      value: 'AVAILABLE',
+                      label: 'Trống',
+                      icon: Icons.check_circle_outline,
+                      color: const Color(0xFF0F8A6A),
+                      lightColor: const Color(0xFFEAF8F4),
+                    ),
+                    _editStatusOption(
+                      value: 'OCCUPIED',
+                      label: 'Đã thuê',
+                      icon: Icons.check,
+                      color: blue,
+                      lightColor: const Color(0xFFEDF3FF),
+                    ),
+                    _editStatusOption(
+                      value: 'MAINTENANCE',
+                      label: 'Bảo trì',
+                      icon: Icons.build_outlined,
+                      color: const Color(0xFF9A6517),
+                      lightColor: const Color(0xFFFFF7E8),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(11, 11, 11, 12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFE8EBF2))),
+          ),
+          child: SizedBox(
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: _isSubmitting ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: blue,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFF93B4F8),
+                elevation: 3,
+                shadowColor: blue.withAlpha(80),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(7),
+                ),
+              ),
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.save_outlined, size: 17),
+              label: const Text('Lưu thay đổi'),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _editCard({
+    required IconData icon,
+    required String title,
+    required Widget child,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: const Color(0xFFE4E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: const Color(0xFF075EEB)),
+              const SizedBox(width: 5),
+              Text(
+                title,
+                style: AppTextStyles.titleSm.copyWith(
+                  fontSize: 14,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _editLabel(String text, {bool required = false}) {
+    return Text.rich(
+      TextSpan(
+        text: text,
+        children: required
+            ? const [
+                TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Color(0xFFEF4444)),
+                ),
+              ]
+            : null,
+      ),
+      style: AppTextStyles.labelSm.copyWith(
+        color: const Color(0xFF64748B),
+        fontSize: 11,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+      ),
+    );
+  }
+
+  InputDecoration _compactDecoration({
+    String? hint,
+    String? suffix,
+    Widget? prefix,
+    double verticalPadding = 10,
+  }) {
+    const borderColor = Color(0xFFCBD3E1);
+    return InputDecoration(
+      hintText: hint,
+      suffixText: suffix,
+      prefixIcon: prefix,
+      prefixIconConstraints: prefix == null
+          ? null
+          : const BoxConstraints(minWidth: 34, minHeight: 38),
+      isDense: true,
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: 11,
+        vertical: verticalPadding,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: borderColor),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: borderColor),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.4),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(6),
+        borderSide: const BorderSide(color: AppColors.danger),
+      ),
+    );
+  }
+
+  String? _validateArea(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Vui lòng nhập diện tích';
+    }
+    final area = double.tryParse(value.trim().replaceAll(',', '.'));
+    return area == null || area <= 0 ? 'Diện tích không hợp lệ' : null;
+  }
+
+  String? _validateMaxOccupants(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Vui lòng nhập số người';
+    }
+    final occupants = int.tryParse(value.trim());
+    return occupants == null || occupants < 1 ? 'Số người không hợp lệ' : null;
+  }
+
+  String? _validateRent(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Vui lòng nhập giá thuê';
+    }
+    final rent = double.tryParse(value.replaceAll('.', '').replaceAll(',', ''));
+    return rent == null || rent <= 0 ? 'Giá thuê không hợp lệ' : null;
+  }
+
+  Widget _editStatusOption({
+    required String value,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required Color lightColor,
+  }) {
+    final selected = _selectedStatus == value;
+    return InkWell(
+      onTap: () => setState(() => _selectedStatus = value),
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? color : lightColor,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: selected ? color : color.withAlpha(45)),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: color.withAlpha(50),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: selected ? Colors.white : color),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: AppTextStyles.labelMd.copyWith(
+                color: selected ? Colors.white : color,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final buildingsAsync = ref.watch(adminBuildingsListProvider);
     final floorsAsync = ref.watch(adminFloorsListProvider(_selectedBuildingId));
+
+    if (_isEdit) {
+      return _buildEditScreen(buildingsAsync, floorsAsync);
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

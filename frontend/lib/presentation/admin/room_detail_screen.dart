@@ -39,6 +39,19 @@ class AdminRoomDetailScreen extends ConsumerStatefulWidget {
 class _AdminRoomDetailScreenState extends ConsumerState<AdminRoomDetailScreen> {
   bool _submitting = false;
 
+  Future<void> _openEditRoom(Room room) async {
+    final updated = await context.push<bool>(
+      AppRoutes.adminRoomForm,
+      extra: {'roomId': room.id, 'room': room},
+    );
+
+    if (updated == true && mounted) {
+      ref.invalidate(adminRoomDetailProvider(widget.roomId));
+      ref.invalidate(adminRoomActiveContractProvider(widget.roomId));
+      ref.read(adminRoomsProvider.notifier).fetchRooms(refresh: true);
+    }
+  }
+
   Future<void> _toggleRoomStatus(Room room) async {
     setState(() => _submitting = true);
     try {
@@ -87,16 +100,27 @@ class _AdminRoomDetailScreenState extends ConsumerState<AdminRoomDetailScreen> {
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         actions: [
           roomDetailAsync.maybeWhen(
-            data: (room) => IconButton(
-              icon: Icon(
-                room.status.toUpperCase() == 'INACTIVE'
-                    ? Icons.play_circle_outline
-                    : Icons.pause_circle_outline,
-                color: room.status.toUpperCase() == 'INACTIVE'
-                    ? AppColors.success
-                    : AppColors.danger,
-              ),
-              onPressed: _submitting ? null : () => _toggleRoomStatus(room),
+            data: (room) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Chỉnh sửa phòng',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: _submitting ? null : () => _openEditRoom(room),
+                ),
+                IconButton(
+                  icon: Icon(
+                    room.status.toUpperCase() == 'INACTIVE'
+                        ? Icons.play_circle_outline
+                        : Icons.pause_circle_outline,
+                    color: room.status.toUpperCase() == 'INACTIVE'
+                        ? AppColors.success
+                        : AppColors.danger,
+                  ),
+                  onPressed:
+                      _submitting ? null : () => _toggleRoomStatus(room),
+                ),
+              ],
             ),
             orElse: () => const SizedBox.shrink(),
           ),
