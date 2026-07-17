@@ -200,7 +200,11 @@ public class AuthService {
         validatePasswordPolicy(request.newPassword());
         User user = users.findById(currentUser.userId()).orElseThrow();
         if (!passwordEncoder.matches(request.oldPassword(), user.getPasswordHash())) {
-            throw new UnauthorizedException("Old password is incorrect", "AUTH_INVALID_CREDENTIALS");
+            throw new BusinessException(
+                    "Old password is incorrect",
+                    "PASSWORD_OLD_INCORRECT",
+                    HttpStatus.BAD_REQUEST
+            );
         }
         if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
             throw new BusinessException(

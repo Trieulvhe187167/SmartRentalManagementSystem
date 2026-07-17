@@ -17,30 +17,32 @@ final adminRoomsListProvider = FutureProvider<List<Room>>((ref) async {
 
 final meteredServicesProvider = FutureProvider<List<ServiceItem>>((ref) async {
   final services = await AdminRepository.instance.services(activeOnly: true);
-  return services.where((service) => service.type == 'METERED').toList();
+  return services.where((service) => service.isMetered).toList();
 });
 
-final latestReadingProvider =
-    FutureProvider.family.autoDispose<MeterReading?, (int roomId, int serviceId)>((ref, arg) async {
-  try {
-    final reading = await AdminRepository.instance.latestRoomReading(
-      arg.$1,
-      serviceId: arg.$2,
-    );
-    return reading;
-  } catch (_) {
-    return null;
-  }
-});
+final latestReadingProvider = FutureProvider.family
+    .autoDispose<MeterReading?, (int roomId, int serviceId)>((ref, arg) async {
+      try {
+        final reading = await AdminRepository.instance.latestRoomReading(
+          arg.$1,
+          serviceId: arg.$2,
+        );
+        return reading;
+      } catch (_) {
+        return null;
+      }
+    });
 
 class AdminMeterReadingScreen extends ConsumerStatefulWidget {
   const AdminMeterReadingScreen({super.key});
 
   @override
-  ConsumerState<AdminMeterReadingScreen> createState() => _AdminMeterReadingScreenState();
+  ConsumerState<AdminMeterReadingScreen> createState() =>
+      _AdminMeterReadingScreenState();
 }
 
-class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScreen> {
+class _AdminMeterReadingScreenState
+    extends ConsumerState<AdminMeterReadingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _prevCtrl = TextEditingController();
   final _currCtrl = TextEditingController();
@@ -63,7 +65,9 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
     if (roomId == null || serviceId == null) return;
     // trigger auto fetch for previous reading
     ref.invalidate(latestReadingProvider((roomId, serviceId)));
-    final latest = await ref.read(latestReadingProvider((roomId, serviceId)).future);
+    final latest = await ref.read(
+      latestReadingProvider((roomId, serviceId)).future,
+    );
     if (latest != null) {
       _prevCtrl.text = (latest.currentReading ?? 0.0).toStringAsFixed(1);
     } else {
@@ -74,11 +78,21 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedRoomId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn phòng'), backgroundColor: AppColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn phòng'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
     if (_selectedServiceId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn loại chỉ số'), backgroundColor: AppColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn loại chỉ số'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
 
@@ -98,7 +112,10 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
       await AdminRepository.instance.createMeterReading(req);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nhập chỉ số thành công!'), backgroundColor: AppColors.success),
+          const SnackBar(
+            content: Text('Nhập chỉ số thành công!'),
+            backgroundColor: AppColors.success,
+          ),
         );
         _currCtrl.clear();
         _onRoomOrServiceChanged(_selectedRoomId, _selectedServiceId);
@@ -106,7 +123,10 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     } finally {
@@ -141,13 +161,16 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
                     // Room Dropdown
                     roomsAsync.when(
                       data: (rooms) => DropdownButtonFormField<int>(
-                        value: _selectedRoomId,
+                        initialValue: _selectedRoomId,
                         decoration: const InputDecoration(
                           labelText: 'Chọn phòng',
                           prefixIcon: Icon(Icons.meeting_room_outlined),
                         ),
                         items: rooms.map((r) {
-                          return DropdownMenuItem(value: r.id, child: Text('Phòng ${r.roomNumber}'));
+                          return DropdownMenuItem(
+                            value: r.id,
+                            child: Text('Phòng ${r.roomNumber}'),
+                          );
                         }).toList(),
                         onChanged: (id) {
                           setState(() => _selectedRoomId = id);
@@ -161,22 +184,20 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
 
                     servicesAsync.when(
                       data: (services) {
-                        if (_selectedServiceId == null && services.isNotEmpty) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted && _selectedServiceId == null) {
-                              setState(() => _selectedServiceId = services.first.id);
-                              _onRoomOrServiceChanged(_selectedRoomId, services.first.id);
-                            }
-                          });
-                        }
                         return DropdownButtonFormField<int>(
-                          value: _selectedServiceId,
-                      decoration: const InputDecoration(labelText: 'Loại chỉ số'),
+                          initialValue: _selectedServiceId,
+                          decoration: const InputDecoration(
+                            labelText: 'Loại chỉ số',
+                          ),
                           items: services.map((service) {
-                            final unit = service.unit == null ? '' : ' (${service.unit})';
+                            final unit = service.unit == null
+                                ? ''
+                                : ' (${service.unit})';
                             return DropdownMenuItem(
                               value: service.id,
-                              child: Text('${service.name ?? service.code ?? 'Dịch vụ'}$unit'),
+                              child: Text(
+                                '${service.name ?? service.code ?? 'Dịch vụ'}$unit',
+                              ),
                             );
                           }).toList(),
                           onChanged: (v) {
@@ -197,10 +218,15 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<int>(
-                            value: _selectedMonth,
-                            decoration: const InputDecoration(labelText: 'Tháng'),
+                            initialValue: _selectedMonth,
+                            decoration: const InputDecoration(
+                              labelText: 'Tháng',
+                            ),
                             items: List.generate(12, (i) {
-                              return DropdownMenuItem(value: i + 1, child: Text('Tháng ${i + 1}'));
+                              return DropdownMenuItem(
+                                value: i + 1,
+                                child: Text('Tháng ${i + 1}'),
+                              );
                             }),
                             onChanged: (v) {
                               if (v != null) setState(() => _selectedMonth = v);
@@ -210,12 +236,21 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButtonFormField<int>(
-                            value: _selectedYear,
+                            initialValue: _selectedYear,
                             decoration: const InputDecoration(labelText: 'Năm'),
                             items: [
-                              DropdownMenuItem(value: DateTime.now().year - 1, child: Text('${DateTime.now().year - 1}')),
-                              DropdownMenuItem(value: DateTime.now().year, child: Text('${DateTime.now().year}')),
-                              DropdownMenuItem(value: DateTime.now().year + 1, child: Text('${DateTime.now().year + 1}')),
+                              DropdownMenuItem(
+                                value: DateTime.now().year - 1,
+                                child: Text('${DateTime.now().year - 1}'),
+                              ),
+                              DropdownMenuItem(
+                                value: DateTime.now().year,
+                                child: Text('${DateTime.now().year}'),
+                              ),
+                              DropdownMenuItem(
+                                value: DateTime.now().year + 1,
+                                child: Text('${DateTime.now().year + 1}'),
+                              ),
                             ],
                             onChanged: (v) {
                               if (v != null) setState(() => _selectedYear = v);
@@ -242,8 +277,12 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
                         labelText: 'Chỉ số cũ',
                         prefixIcon: Icon(Icons.history_outlined),
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      validator: (v) => (v == null || v.isEmpty) ? 'Vui lòng nhập chỉ số cũ' : null,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? 'Vui lòng nhập chỉ số cũ'
+                          : null,
                     ),
                     const SizedBox(height: 16),
 
@@ -254,12 +293,18 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
                         labelText: 'Chỉ số mới',
                         prefixIcon: Icon(Icons.speed_outlined),
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Vui lòng nhập chỉ số mới';
+                        if (v == null || v.isEmpty) {
+                          return 'Vui lòng nhập chỉ số mới';
+                        }
                         final prev = double.tryParse(_prevCtrl.text) ?? 0.0;
                         final curr = double.tryParse(v) ?? 0.0;
-                        if (curr < prev) return 'Chỉ số mới không được nhỏ hơn chỉ số cũ';
+                        if (curr < prev) {
+                          return 'Chỉ số mới không được nhỏ hơn chỉ số cũ';
+                        }
                         return null;
                       },
                     ),
@@ -271,7 +316,9 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
                         final picked = await showDatePicker(
                           context: context,
                           initialDate: _readingDate,
-                          firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                          firstDate: DateTime.now().subtract(
+                            const Duration(days: 30),
+                          ),
                           lastDate: DateTime.now(),
                         );
                         if (picked != null) {
@@ -297,7 +344,11 @@ class _AdminMeterReadingScreenState extends ConsumerState<AdminMeterReadingScree
                 child: ElevatedButton(
                   onPressed: _submitting ? null : _submit,
                   child: _submitting
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white))
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white),
+                        )
                       : const Text('Ghi nhận chỉ số'),
                 ),
               ),

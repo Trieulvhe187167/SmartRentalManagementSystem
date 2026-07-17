@@ -107,7 +107,8 @@ class AuthControllerIntegrationTest {
                                   "confirmPassword": "Changed123"
                                 }
                                 """))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("PASSWORD_OLD_INCORRECT"));
 
         mockMvc.perform(put("/api/v1/auth/change-password")
                         .header("Authorization", "Bearer " + token)
