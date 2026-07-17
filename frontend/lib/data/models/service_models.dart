@@ -3,6 +3,7 @@ class ServiceItem {
   final String? name;
   final String? code;
   final String? type;
+  final String? chargeType;
   final String? unit;
   final double? currentPrice;
   final bool? active;
@@ -14,6 +15,7 @@ class ServiceItem {
     this.name,
     this.code,
     this.type,
+    this.chargeType,
     this.unit,
     this.currentPrice,
     this.active,
@@ -26,7 +28,8 @@ class ServiceItem {
       id: json['id'] as int?,
       name: json['name'] as String?,
       code: json['code'] as String?,
-      type: json['type'] as String? ?? json['chargeType'] as String?,
+      type: json['type'] as String? ?? json['code'] as String?,
+      chargeType: json['chargeType'] as String?,
       unit: json['unit'] as String?,
       currentPrice: (json['currentPrice'] as num?)?.toDouble(),
       active: json['active'] as bool? ?? json['status'] == 'ACTIVE',
@@ -36,16 +39,19 @@ class ServiceItem {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'code': code,
-        'type': type,
-        'unit': unit,
-        'currentPrice': currentPrice,
-        'active': active,
-        'status': status,
-        'description': description,
-      };
+    'id': id,
+    'name': name,
+    'code': code,
+    'type': type,
+    'chargeType': chargeType,
+    'unit': unit,
+    'currentPrice': currentPrice,
+    'active': active,
+    'status': status,
+    'description': description,
+  };
+
+  bool get isMetered => chargeType == 'METERED';
 }
 
 class ServiceRequest {
@@ -68,14 +74,14 @@ class ServiceRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'code': code ?? type,
-        'type': type,
-        'unit': unit,
-        'chargeType': chargeType ?? _chargeTypeFromServiceType(type),
-        if (description != null) 'description': description,
-        if (active != null) 'active': active,
-      };
+    'name': name,
+    'code': code ?? type,
+    'type': type,
+    'unit': unit,
+    'chargeType': chargeType ?? _chargeTypeFromServiceType(type),
+    if (description != null) 'description': description,
+    if (active != null) 'active': active,
+  };
 }
 
 class ServicePrice {
@@ -105,12 +111,12 @@ class ServicePrice {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'serviceId': serviceId,
-        'serviceName': serviceName,
-        'price': price,
-        'effectiveDate': effectiveDate,
-      };
+    'id': id,
+    'serviceId': serviceId,
+    'serviceName': serviceName,
+    'price': price,
+    'effectiveDate': effectiveDate,
+  };
 }
 
 class ServicePriceRequest {
@@ -129,12 +135,12 @@ class ServicePriceRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        'serviceId': serviceId,
-        'unitPrice': unitPrice,
-        'effectiveFrom': effectiveFrom,
-        if (effectiveTo != null) 'effectiveTo': effectiveTo,
-        if (notes != null) 'notes': notes,
-      };
+    'serviceId': serviceId,
+    'unitPrice': unitPrice,
+    'effectiveFrom': effectiveFrom,
+    if (effectiveTo != null) 'effectiveTo': effectiveTo,
+    if (notes != null) 'notes': notes,
+  };
 }
 
 String _chargeTypeFromServiceType(String? type) {

@@ -110,6 +110,9 @@ class AuthController extends StateNotifier<AuthState> {
       );
       return null; // success
     } on ApiException catch (e) {
+      if (e.errorCode == 'PASSWORD_OLD_INCORRECT') {
+        return 'Mật khẩu hiện tại không chính xác.';
+      }
       return e.message;
     } catch (e) {
       return 'Đổi mật khẩu thất bại. Vui lòng thử lại.';
