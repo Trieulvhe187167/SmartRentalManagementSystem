@@ -275,7 +275,7 @@ class TenantHomeScreen extends ConsumerWidget {
                         icon: Icons.receipt_long_outlined,
                         label: 'Hóa đơn',
                         color: Theme.of(context).colorScheme.primary,
-                        onTap: () => _showInvoicesBottomSheet(context, ref),
+                        onTap: () => context.push(AppRoutes.tenantInvoices),
                       ),
                       _buildQuickAction(
                         context,

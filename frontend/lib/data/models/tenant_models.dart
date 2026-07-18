@@ -17,17 +17,19 @@ class TenantDashboardResponse {
   });
 
   factory TenantDashboardResponse.fromJson(Map<String, dynamic> json) {
+    final invoiceData = json['currentInvoice'] ?? json['latestInvoice'];
+    final parsedInvoice = invoiceData is Map<String, dynamic>
+        ? Invoice.fromJson(invoiceData)
+        : null;
+
     return TenantDashboardResponse(
       currentRoom: json['currentRoom'] != null
           ? CurrentRoomInfo.fromJson(
               json['currentRoom'] as Map<String, dynamic>,
             )
           : null,
-      currentInvoice: (json['currentInvoice'] ?? json['latestInvoice']) != null
-          ? Invoice.fromJson(
-              (json['currentInvoice'] ?? json['latestInvoice'])
-                  as Map<String, dynamic>,
-            )
+      currentInvoice: parsedInvoice?.isVisibleToTenant == true
+          ? parsedInvoice
           : null,
       totalDebt:
           ((json['totalDebt'] ?? json['currentDebt']) as num?)?.toDouble() ?? 0,

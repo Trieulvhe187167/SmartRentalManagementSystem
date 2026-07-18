@@ -68,6 +68,13 @@ import com.example.rentalmanagement.user.repository.*;
 
 @Service
 public class DashboardService {
+    private static final List<InvoiceStatus> TENANT_VISIBLE_INVOICE_STATUSES = List.of(
+            InvoiceStatus.ISSUED,
+            InvoiceStatus.PARTIALLY_PAID,
+            InvoiceStatus.PAID,
+            InvoiceStatus.OVERDUE
+    );
+
     private final RoomRepository rooms;
     private final InvoiceRepository invoices;
     private final MaintenanceRequestRepository maintenance;
@@ -147,7 +154,11 @@ public class DashboardService {
     public TenantDashboardResponse tenantSummary() {
         Long userId = currentUser.userId();
         RentalContract contract = contracts.findFirstByPrimaryTenantUserIdAndStatusAndIsDeletedFalse(userId, ContractStatus.ACTIVE).orElse(null);
-        Invoice latest = invoices.findByTenantProfileUserIdAndIsDeletedFalse(userId, PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "createdAt")))
+        Invoice latest = invoices.findByTenantProfileUserIdAndStatusInAndIsDeletedFalse(
+                        userId,
+                        TENANT_VISIBLE_INVOICE_STATUSES,
+                        PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "createdAt"))
+                )
                 .stream().findFirst().orElse(null);
         BigDecimal debt = invoices.findByTenantProfileUserIdAndIsDeletedFalse(userId, Pageable.unpaged()).stream()
                 .filter(i -> List.of(InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE).contains(i.status))

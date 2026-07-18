@@ -38,9 +38,17 @@ class Invoice {
 
   String get tenantName => tenantProfile?.fullName ?? '—';
 
+  bool get isVisibleToTenant => const {
+    'ISSUED',
+    'PARTIALLY_PAID',
+    'PAID',
+    'OVERDUE',
+  }.contains(status?.toUpperCase());
+
   factory Invoice.fromJson(Map<String, dynamic> json) {
     final contract = json['contract'];
-    final tenantProfileData = json['tenantProfile'] ??
+    final tenantProfileData =
+        json['tenantProfile'] ??
         (contract is Map<String, dynamic> ? contract['primaryTenant'] : null);
     return Invoice(
       id: json['id'] as int?,
@@ -53,7 +61,9 @@ class Invoice {
       status: json['status'] as String?,
       dueDate: json['dueDate'] as String?,
       issuedDate: json['issuedDate'] as String? ?? json['issuedAt'] as String?,
-      roomNumber: json['roomNumber'] as String? ?? _roomString(json['room'], 'roomNumber'),
+      roomNumber:
+          json['roomNumber'] as String? ??
+          _roomString(json['room'], 'roomNumber'),
       buildingName:
           json['buildingName'] as String? ?? _buildingName(json['room']),
       roomId: (json['roomId'] as num?)?.toInt() ?? _roomInt(json['room'], 'id'),
@@ -67,22 +77,22 @@ class Invoice {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'invoiceNumber': invoiceNumber,
-        'billingMonth': billingMonth,
-        'billingYear': billingYear,
-        'totalAmount': totalAmount,
-        'paidAmount': paidAmount,
-        'remainingAmount': remainingAmount,
-        'status': status,
-        'dueDate': dueDate,
-        'issuedDate': issuedDate,
-        'roomNumber': roomNumber,
-        'buildingName': buildingName,
-        'roomId': roomId,
-        if (tenantProfile != null) 'tenantProfile': tenantProfile!.toJson(),
-        'items': items.map((e) => e.toJson()).toList(),
-      };
+    'id': id,
+    'invoiceNumber': invoiceNumber,
+    'billingMonth': billingMonth,
+    'billingYear': billingYear,
+    'totalAmount': totalAmount,
+    'paidAmount': paidAmount,
+    'remainingAmount': remainingAmount,
+    'status': status,
+    'dueDate': dueDate,
+    'issuedDate': issuedDate,
+    'roomNumber': roomNumber,
+    'buildingName': buildingName,
+    'roomId': roomId,
+    if (tenantProfile != null) 'tenantProfile': tenantProfile!.toJson(),
+    'items': items.map((e) => e.toJson()).toList(),
+  };
 }
 
 String? _roomString(dynamic room, String key) {
@@ -132,13 +142,13 @@ class InvoiceItem {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'description': description,
-        'quantity': quantity,
-        'unitPrice': unitPrice,
-        'amount': amount,
-        'type': type,
-      };
+    'id': id,
+    'description': description,
+    'quantity': quantity,
+    'unitPrice': unitPrice,
+    'amount': amount,
+    'type': type,
+  };
 }
 
 class InvoiceDetail {
@@ -178,10 +188,10 @@ class GenerateInvoiceRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        'contractId': contractId,
-        'billingMonth': billingMonth,
-        'billingYear': billingYear,
-      };
+    'contractId': contractId,
+    'billingMonth': billingMonth,
+    'billingYear': billingYear,
+  };
 }
 
 class GenerateMonthlyInvoicesRequest {
@@ -194,22 +204,19 @@ class GenerateMonthlyInvoicesRequest {
   });
 
   Map<String, dynamic> toJson() => {
-        'billingMonth': billingMonth,
-        'billingYear': billingYear,
-      };
+    'billingMonth': billingMonth,
+    'billingYear': billingYear,
+  };
 }
 
 class InvoiceIssueRequest {
   final String dueDate;
   final String? issueDate;
 
-  const InvoiceIssueRequest({
-    required this.dueDate,
-    this.issueDate,
-  });
+  const InvoiceIssueRequest({required this.dueDate, this.issueDate});
 
   Map<String, dynamic> toJson() => {
-        'issueDate': issueDate ?? DateTime.now().toIso8601String().substring(0, 10),
-        'dueDate': dueDate,
-      };
+    'issueDate': issueDate ?? DateTime.now().toIso8601String().substring(0, 10),
+    'dueDate': dueDate,
+  };
 }
