@@ -57,5 +57,24 @@ import com.example.rentalmanagement.user.*;
 import com.example.rentalmanagement.user.dto.*;
 import com.example.rentalmanagement.user.repository.*;
 
-public record ServiceRequest(String code, @NotBlank String name, @NotBlank String unit, @NotNull ServiceChargeType chargeType, String description, Boolean active) {
+public record ServiceRequest(
+        String code,
+        @NotBlank String name,
+        @NotBlank String unit,
+        @NotNull ServiceChargeType chargeType,
+        String description,
+        Boolean active,
+        @DecimalMin("0.01") BigDecimal initialUnitPrice,
+        LocalDate priceEffectiveFrom
+) {
+    public ServiceRequest(
+            String code,
+            String name,
+            String unit,
+            ServiceChargeType chargeType,
+            String description,
+            Boolean active
+    ) {
+        this(code, name, unit, chargeType, description, active, null, null);
+    }
 }

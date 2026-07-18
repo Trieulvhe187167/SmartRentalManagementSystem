@@ -68,6 +68,13 @@ import com.example.rentalmanagement.user.repository.*;
 
 @Service
 public class BillingService {
+    private static final List<InvoiceStatus> TENANT_VISIBLE_INVOICE_STATUSES = List.of(
+            InvoiceStatus.ISSUED,
+            InvoiceStatus.PARTIALLY_PAID,
+            InvoiceStatus.PAID,
+            InvoiceStatus.OVERDUE
+    );
+
     private final RoomRepository rooms;
     private final RentalContractRepository contracts;
     private final ServiceItemRepository services;
@@ -319,7 +326,11 @@ public class BillingService {
     }
 
     public Page<Invoice> tenantInvoices(Pageable pageable) {
-        return invoices.findByTenantProfileUserIdAndIsDeletedFalse(currentUser.userId(), pageable);
+        return invoices.findByTenantProfileUserIdAndStatusInAndIsDeletedFalse(
+                currentUser.userId(),
+                TENANT_VISIBLE_INVOICE_STATUSES,
+                pageable
+        );
     }
 
     public Page<Invoice> tenantDebtInvoices(Pageable pageable) {
@@ -331,7 +342,11 @@ public class BillingService {
     }
 
     public InvoiceDetail tenantInvoice(Long id) {
-        Invoice invoice = invoices.findByIdAndTenantProfileUserIdAndIsDeletedFalse(id, currentUser.userId())
+        Invoice invoice = invoices.findByIdAndTenantProfileUserIdAndStatusInAndIsDeletedFalse(
+                        id,
+                        currentUser.userId(),
+                        TENANT_VISIBLE_INVOICE_STATUSES
+                )
                 .orElseThrow(() -> new NotFoundException("Invoice not found", "INVOICE_NOT_FOUND"));
         return new InvoiceDetail(invoice, items.findByInvoiceIdAndIsDeletedFalseOrderByDisplayOrderAsc(id), payments.findByInvoiceIdAndStatus(id, PaymentStatus.CONFIRMED));
     }

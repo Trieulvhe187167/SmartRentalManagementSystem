@@ -65,6 +65,7 @@ public record AdminDashboardResponse(
         BigDecimal occupancyRate,
         BigDecimal monthlyInvoiceAmount,
         BigDecimal monthlyCollectedAmount,
+        BigDecimal monthlyDebtAmount,
         BigDecimal totalDebt,
         long openMaintenanceRequests,
         long expiringContracts

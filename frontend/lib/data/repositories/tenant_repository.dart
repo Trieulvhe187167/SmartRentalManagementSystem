@@ -42,9 +42,14 @@ class TenantRepository {
         response.data as Map<String, dynamic>,
         (json) => json as Map<String, dynamic>,
       );
-      return PageResponse<Invoice>.fromJson(
+      final pageResponse = PageResponse<Invoice>.fromJson(
         apiResponse.data!,
-        (json) => Invoice.fromJson(json as Map<String, dynamic>),
+        Invoice.fromJson,
+      );
+      return pageResponse.copyWith(
+        content: pageResponse.content
+            .where((invoice) => invoice.isVisibleToTenant)
+            .toList(),
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -54,9 +59,7 @@ class TenantRepository {
   // GET /tenant/invoices/{id}
   Future<InvoiceDetail> invoiceDetail(int id) async {
     try {
-      final response = await _dio.get(
-        '${ApiConstants.tenantInvoices}/$id',
-      );
+      final response = await _dio.get('${ApiConstants.tenantInvoices}/$id');
       final apiResponse = ApiResponse<InvoiceDetail>.fromJson(
         response.data as Map<String, dynamic>,
         (json) => InvoiceDetail.fromJson(json as Map<String, dynamic>),
@@ -80,7 +83,7 @@ class TenantRepository {
       );
       return PageResponse<Payment>.fromJson(
         apiResponse.data!,
-        (json) => Payment.fromJson(json as Map<String, dynamic>),
+        Payment.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -88,8 +91,10 @@ class TenantRepository {
   }
 
   // GET /tenant/meter-readings
-  Future<PageResponse<MeterReading>> meterReadings(
-      {int page = 0, int size = 20}) async {
+  Future<PageResponse<MeterReading>> meterReadings({
+    int page = 0,
+    int size = 20,
+  }) async {
     try {
       final response = await _dio.get(
         ApiConstants.tenantMeterReadings,
@@ -101,7 +106,7 @@ class TenantRepository {
       );
       return PageResponse<MeterReading>.fromJson(
         apiResponse.data!,
-        (json) => MeterReading.fromJson(json as Map<String, dynamic>),
+        MeterReading.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -109,8 +114,10 @@ class TenantRepository {
   }
 
   // GET /tenant/debt
-  Future<PageResponse<Invoice>> debtInvoices(
-      {int page = 0, int size = 20}) async {
+  Future<PageResponse<Invoice>> debtInvoices({
+    int page = 0,
+    int size = 20,
+  }) async {
     try {
       final response = await _dio.get(
         ApiConstants.tenantDebt,
@@ -122,7 +129,7 @@ class TenantRepository {
       );
       return PageResponse<Invoice>.fromJson(
         apiResponse.data!,
-        (json) => Invoice.fromJson(json as Map<String, dynamic>),
+        Invoice.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -130,8 +137,10 @@ class TenantRepository {
   }
 
   // GET /tenant/maintenance-requests
-  Future<PageResponse<MaintenanceRequest>> maintenanceRequests(
-      {int page = 0, int size = 20}) async {
+  Future<PageResponse<MaintenanceRequest>> maintenanceRequests({
+    int page = 0,
+    int size = 20,
+  }) async {
     try {
       final response = await _dio.get(
         ApiConstants.tenantMaintenanceRequests,
@@ -143,7 +152,7 @@ class TenantRepository {
       );
       return PageResponse<MaintenanceRequest>.fromJson(
         apiResponse.data!,
-        (json) => MaintenanceRequest.fromJson(json as Map<String, dynamic>),
+        MaintenanceRequest.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;
@@ -168,7 +177,8 @@ class TenantRepository {
 
   // POST /tenant/maintenance-requests
   Future<MaintenanceRequest> createMaintenanceRequest(
-      MaintenanceRequestCreateRequest req) async {
+    MaintenanceRequestCreateRequest req,
+  ) async {
     try {
       final response = await _dio.post(
         ApiConstants.tenantMaintenanceRequests,
@@ -186,7 +196,9 @@ class TenantRepository {
 
   // PUT /tenant/maintenance-requests/{id}
   Future<MaintenanceRequest> updateMaintenanceRequest(
-      int id, MaintenanceRequestUpdateRequest req) async {
+    int id,
+    MaintenanceRequestUpdateRequest req,
+  ) async {
     try {
       final response = await _dio.put(
         '${ApiConstants.tenantMaintenanceRequests}/$id',
@@ -219,8 +231,10 @@ class TenantRepository {
   }
 
   // GET /tenant/notifications
-  Future<PageResponse<AppNotification>> notifications(
-      {int page = 0, int size = 20}) async {
+  Future<PageResponse<AppNotification>> notifications({
+    int page = 0,
+    int size = 20,
+  }) async {
     try {
       final response = await _dio.get(
         ApiConstants.tenantNotifications,
@@ -232,7 +246,7 @@ class TenantRepository {
       );
       return PageResponse<AppNotification>.fromJson(
         apiResponse.data!,
-        (json) => AppNotification.fromJson(json as Map<String, dynamic>),
+        AppNotification.fromJson,
       );
     } on DioException catch (e) {
       throw e.error ?? e;

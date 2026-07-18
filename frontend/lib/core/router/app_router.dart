@@ -14,6 +14,7 @@ import '../../presentation/auth/forgot_password_screen.dart';
 import '../../presentation/auth/reset_password_screen.dart';
 import '../../presentation/tenant/home_screen.dart';
 import '../../presentation/tenant/invoice_detail_screen.dart';
+import '../../presentation/tenant/invoice_list_screen.dart';
 import '../../presentation/tenant/maintenance_screen.dart';
 import '../../presentation/tenant/notifications_screen.dart';
 import '../../presentation/tenant/profile_screen.dart';
@@ -49,6 +50,7 @@ class AppRoutes {
 
   // Tenant
   static const tenantHome = '/tenant/home';
+  static const tenantInvoices = '/tenant/invoices';
   static const tenantInvoiceDetail = '/tenant/invoices/:id';
   static const tenantMaintenance = '/tenant/maintenance';
   static const tenantNotifications = '/tenant/notifications';
@@ -207,6 +209,10 @@ final _routes = <RouteBase>[
         builder: (context, state) => const TenantProfileScreen(),
       ),
     ],
+  ),
+  GoRoute(
+    path: AppRoutes.tenantInvoices,
+    builder: (context, state) => const TenantInvoiceListScreen(),
   ),
   GoRoute(
     path: AppRoutes.tenantInvoiceDetail,
