@@ -18,4 +18,20 @@ void main() {
     expect(service.chargeType, 'METERED');
     expect(service.isMetered, isTrue);
   });
+
+  test('service creation includes its initial price and effective date', () {
+    const request = ServiceRequest(
+      name: 'Rác',
+      code: 'CLEANING',
+      type: 'CLEANING',
+      unit: 'tháng',
+      chargeType: 'FIXED_PER_ROOM',
+      active: true,
+      initialUnitPrice: 30000,
+      priceEffectiveFrom: '2026-07-19',
+    );
+
+    expect(request.toJson()['initialUnitPrice'], 30000);
+    expect(request.toJson()['priceEffectiveFrom'], '2026-07-19');
+  });
 }

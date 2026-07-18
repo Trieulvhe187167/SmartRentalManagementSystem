@@ -6,6 +6,7 @@ import com.example.rentalmanagement.common.scheduling.*;
 import java.math.*;
 import java.time.*;
 import java.util.*;
+import java.text.Normalizer;
 import java.io.*;
 import javax.crypto.*;
 
@@ -231,8 +232,18 @@ public class ContractManagementService {
 
     @Transactional
     public ServiceItem saveService(ServiceRequest request, Long id) {
+        if ((request.initialUnitPrice() == null) != (request.priceEffectiveFrom() == null)) {
+            throw new BusinessException(
+                    "Initial price and effective date must be provided together",
+                    "SERVICE_INITIAL_PRICE_INCOMPLETE",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
         ServiceItem service = id == null ? new ServiceItem() : services.findById(id).orElseThrow(() -> new NotFoundException("Service not found", "SERVICE_NOT_FOUND"));
         String code = normalizeServiceCode(request.code(), request.name());
+        if (id == null && services.existsByCode(code) && isServiceTypeCode(code)) {
+            code = normalizeServiceCode(code + "_" + request.name(), request.name());
+        }
         if (id == null && services.existsByCode(code)) {
             throw new BusinessException("Service code already exists", "SERVICE_CODE_EXISTS");
         }
@@ -245,7 +256,17 @@ public class ContractManagementService {
         service.chargeType = request.chargeType();
         service.description = request.description();
         service.status = request.active() == null || request.active() ? RecordStatus.ACTIVE : RecordStatus.INACTIVE;
-        return enrichService(services.save(service));
+        ServiceItem saved = services.save(service);
+        if (id == null && request.initialUnitPrice() != null) {
+            addPrice(new ServicePriceRequest(
+                    saved.id,
+                    request.initialUnitPrice(),
+                    request.priceEffectiveFrom(),
+                    null,
+                    "Giá ban đầu khi tạo dịch vụ"
+            ));
+        }
+        return enrichService(saved);
     }
 
     public Page<ServiceItem> services(Pageable pageable) {
@@ -278,7 +299,18 @@ public class ContractManagementService {
         if (request.effectiveTo() != null && request.effectiveTo().isBefore(request.effectiveFrom())) {
             throw new BusinessException("Price effectiveTo must not be before effectiveFrom", "SERVICE_PRICE_INVALID_DATE");
         }
-        prices.findEffective(service.id, request.effectiveFrom()).stream()
+        List<ServicePrice> effectivePrices = prices.findEffective(service.id, request.effectiveFrom());
+        Optional<ServicePrice> sameDatePrice = effectivePrices.stream()
+                .filter(existing -> existing.effectiveFrom.equals(request.effectiveFrom()))
+                .findFirst();
+        if (sameDatePrice.isPresent()) {
+            ServicePrice price = sameDatePrice.get();
+            price.unitPrice = request.unitPrice();
+            price.effectiveTo = request.effectiveTo();
+            price.notes = request.notes();
+            return prices.saveAndFlush(price);
+        }
+        effectivePrices.stream()
                 .filter(existing -> existing.effectiveTo == null || !existing.effectiveTo.isBefore(request.effectiveFrom()))
                 .forEach(existing -> {
                     if (existing.effectiveFrom.isBefore(request.effectiveFrom())) {
@@ -287,13 +319,14 @@ public class ContractManagementService {
                         existing.isDeleted = true;
                     }
                 });
+        prices.flush();
         ServicePrice price = new ServicePrice();
         price.serviceItem = service;
         price.unitPrice = request.unitPrice();
         price.effectiveFrom = request.effectiveFrom();
         price.effectiveTo = request.effectiveTo();
         price.notes = request.notes();
-        return prices.save(price);
+        return prices.saveAndFlush(price);
     }
 
     private ServiceItem enrichService(ServiceItem service) {
@@ -306,13 +339,21 @@ public class ContractManagementService {
 
     private String normalizeServiceCode(String code, String name) {
         String source = code == null || code.isBlank() ? name : code;
-        String normalized = source.trim().toUpperCase()
+        String asciiSource = Normalizer.normalize(source, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .replace('Đ', 'D')
+                .replace('đ', 'd');
+        String normalized = asciiSource.trim().toUpperCase()
                 .replaceAll("[^A-Z0-9]+", "_")
                 .replaceAll("^_+|_+$", "");
         if (normalized.isBlank()) {
             throw new BusinessException("Service code is required", "SERVICE_CODE_REQUIRED", HttpStatus.BAD_REQUEST);
         }
         return normalized;
+    }
+
+    private boolean isServiceTypeCode(String code) {
+        return Set.of("ELECTRICITY", "WATER", "INTERNET", "CLEANING", "PARKING", "OTHER").contains(code);
     }
 
     public Page<ServicePrice> servicePrices(Long serviceId, Pageable pageable) {

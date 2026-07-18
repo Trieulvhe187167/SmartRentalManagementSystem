@@ -24,22 +24,22 @@ class AppCard extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget content = Padding(
       padding: padding ?? const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: title == null
+          ? child
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title!, style: AppTextStyles.titleMd),
-                ?trailing,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(title!, style: AppTextStyles.titleMd),
+                    ?trailing,
+                  ],
+                ),
+                const SizedBox(height: 12),
+                child,
               ],
             ),
-            const SizedBox(height: 12),
-          ],
-          child,
-        ],
-      ),
     );
 
     if (onTap != null) {

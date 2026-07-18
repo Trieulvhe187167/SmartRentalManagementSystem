@@ -82,6 +82,20 @@ public class ServiceItem extends AuditableEntity {
     }
 
     public String getType() {
+        if (code == null) {
+            return null;
+        }
+        for (String type : List.of("ELECTRICITY", "WATER", "INTERNET", "CLEANING", "PARKING", "OTHER")) {
+            if (code.equals(type) || code.startsWith(type + "_")) {
+                return type;
+            }
+        }
+        if (code.equals("TRASH")) {
+            return "CLEANING";
+        }
+        if (code.equals("MANAGEMENT")) {
+            return "OTHER";
+        }
         return code;
     }
 }

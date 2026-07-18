@@ -96,14 +96,26 @@ public class DashboardService {
         long occupied = rooms.countByStatusAndIsDeletedFalse(RoomStatus.OCCUPIED);
         BigDecimal occupancyRate = total == 0 ? BigDecimal.ZERO : BigDecimal.valueOf(occupied * 100.0 / total).setScale(2, RoundingMode.HALF_UP);
         LocalDate now = LocalDate.now();
-        List<Invoice> monthInvoices = invoices.findAll().stream()
-                .filter(i -> i.billingMonth == now.getMonthValue() && i.billingYear == now.getYear() && i.status != InvoiceStatus.CANCELLED)
+        List<Invoice> allInvoices = invoices.findAll();
+        List<Invoice> monthInvoices = allInvoices.stream()
+                .filter(i -> !i.isDeleted)
+                .filter(i -> Objects.equals(i.billingMonth, now.getMonthValue()))
+                .filter(i -> Objects.equals(i.billingYear, now.getYear()))
+                .filter(i -> TENANT_VISIBLE_INVOICE_STATUSES.contains(i.status))
                 .toList();
-        BigDecimal invoiceAmount = monthInvoices.stream().map(i -> i.totalAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal collected = monthInvoices.stream().map(i -> i.paidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal debt = invoices.findAll().stream()
+        BigDecimal invoiceAmount = monthInvoices.stream()
+                .map(i -> amountOrZero(i.totalAmount))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal collected = monthInvoices.stream()
+                .map(i -> amountOrZero(i.paidAmount))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal monthlyDebt = monthInvoices.stream()
+                .map(DashboardService::remainingAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal debt = allInvoices.stream()
+                .filter(i -> !i.isDeleted)
                 .filter(i -> List.of(InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE).contains(i.status))
-                .map(i -> i.totalAmount.subtract(i.paidAmount))
+                .map(DashboardService::remainingAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new AdminDashboardResponse(
                 total,
@@ -113,10 +125,19 @@ public class DashboardService {
                 occupancyRate,
                 invoiceAmount,
                 collected,
+                monthlyDebt,
                 debt,
                 maintenance.countByStatusInAndIsDeletedFalse(List.of(MaintenanceStatus.OPEN, MaintenanceStatus.RECEIVED, MaintenanceStatus.IN_PROGRESS)),
                 contracts.findByStatusAndEndDateBetweenAndIsDeletedFalse(ContractStatus.ACTIVE, now, now.plusDays(30)).size()
         );
+    }
+
+    private static BigDecimal amountOrZero(BigDecimal amount) {
+        return amount == null ? BigDecimal.ZERO : amount;
+    }
+
+    private static BigDecimal remainingAmount(Invoice invoice) {
+        return amountOrZero(invoice.totalAmount).subtract(amountOrZero(invoice.paidAmount));
     }
 
     public java.util.Map<String, Long> roomStats() {

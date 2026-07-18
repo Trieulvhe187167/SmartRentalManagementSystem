@@ -5,6 +5,7 @@ class AdminDashboardResponse {
   final int maintenanceRooms;
   final double monthlyRevenue;
   final double monthlyCollectedAmount;
+  final double monthlyDebtAmount;
   final double totalDebt;
   final int pendingMaintenanceCount;
   final int expiringContractsCount;
@@ -16,13 +17,14 @@ class AdminDashboardResponse {
     required this.maintenanceRooms,
     required this.monthlyRevenue,
     required this.monthlyCollectedAmount,
+    required this.monthlyDebtAmount,
     required this.totalDebt,
     required this.pendingMaintenanceCount,
     required this.expiringContractsCount,
   });
 
   double get currentMonthRevenue => monthlyCollectedAmount;
-  double get currentMonthDebt => totalDebt;
+  double get currentMonthDebt => monthlyDebtAmount;
 
   factory AdminDashboardResponse.fromJson(Map<String, dynamic> json) {
     return AdminDashboardResponse(
@@ -30,22 +32,27 @@ class AdminDashboardResponse {
       occupiedRooms: (json['occupiedRooms'] as num?)?.toInt() ?? 0,
       availableRooms: (json['availableRooms'] as num?)?.toInt() ?? 0,
       maintenanceRooms: (json['maintenanceRooms'] as num?)?.toInt() ?? 0,
-      monthlyRevenue: ((json['monthlyRevenue'] ??
-                  json['monthlyInvoiceAmount']) as num?)
+      monthlyRevenue:
+          ((json['monthlyRevenue'] ?? json['monthlyInvoiceAmount']) as num?)
               ?.toDouble() ??
           0,
       monthlyCollectedAmount:
           (json['monthlyCollectedAmount'] as num?)?.toDouble() ?? 0,
+      monthlyDebtAmount:
+          ((json['monthlyDebtAmount'] ?? json['totalDebt']) as num?)
+              ?.toDouble() ??
+          0,
       totalDebt: (json['totalDebt'] as num?)?.toDouble() ?? 0,
-      pendingMaintenanceCount: ((json['pendingMaintenanceCount'] ??
-                  json['openMaintenanceRequests']) as num?)
+      pendingMaintenanceCount:
+          ((json['pendingMaintenanceCount'] ?? json['openMaintenanceRequests'])
+                  as num?)
               ?.toInt() ??
           0,
       expiringContractsCount:
           ((json['expiringContractsCount'] ?? json['expiringContracts'])
-                      as num?)
-                  ?.toInt() ??
-              0,
+                  as num?)
+              ?.toInt() ??
+          0,
     );
   }
 }

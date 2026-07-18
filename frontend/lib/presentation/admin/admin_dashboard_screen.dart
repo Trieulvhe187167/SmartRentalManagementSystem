@@ -8,11 +8,12 @@ import '../../core/theme/theme_provider.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../data/models/contract_models.dart';
+import '../../data/models/maintenance_models.dart';
 import '../shared/widgets/app_card.dart';
 import '../shared/widgets/status_chip.dart';
-import '../shared/widgets/empty_state.dart';
 import '../shared/widgets/loading_shimmer.dart';
 import '../auth/auth_controller.dart';
+import '../tenant/tenant_controller.dart';
 import 'admin_controller.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
@@ -21,16 +22,15 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardAsync = ref.watch(adminDashboardProvider);
-    final roomStatsAsync = ref.watch(adminRoomStatsProvider);
-    final revenueAsync = ref.watch(adminRevenueSummaryProvider);
     final expiringContractsAsync = ref.watch(adminExpiringContractsProvider);
-    final nearestActiveContractsAsync = ref.watch(adminNearestActiveContractsProvider);
     final userState = ref.watch(authControllerProvider);
+    final maintState = ref.watch(adminMaintenanceProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Dashboard quản lý'),
+        title: const Text('RoomManager'),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         actions: [
           IconButton(
             icon: Icon(
@@ -44,34 +44,7 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: AppColors.danger),
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) {
-                  return AlertDialog(
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    title: const Text('Đăng xuất'),
-                    content: const Text('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản admin không?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Hủy'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Đăng xuất', style: TextStyle(color: AppColors.danger)),
-                      ),
-                    ],
-                  );
-                },
-              );
-              if (confirm == true && context.mounted) {
-                await ref.read(authControllerProvider.notifier).logout();
-                if (context.mounted) {
-                  context.go(AppRoutes.login);
-                }
-              }
-            },
+            onPressed: () => _showLogoutDialog(context, ref),
           ),
           const SizedBox(width: 8),
         ],
@@ -79,162 +52,267 @@ class AdminDashboardScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(adminDashboardProvider);
-          ref.invalidate(adminRoomStatsProvider);
-          ref.invalidate(adminRevenueSummaryProvider);
           ref.invalidate(adminExpiringContractsProvider);
-          ref.invalidate(adminNearestActiveContractsProvider);
+          ref.invalidate(adminMaintenanceProvider);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ─── Greeting ──────────────────────────────
-              Text(
-                'Chào mừng quay trở lại, ${userState.user?.displayName ?? 'Admin'}!',
-                style: AppTextStyles.titleLg,
+              // ─── Welcome Header ──────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Chào mừng quay trở lại,',
+                          style: AppTextStyles.bodyMd.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        Text(
+                          userState.user?.displayName ?? 'Admin Quản lý',
+                          style: AppTextStyles.headlineSm.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    DateFormatter.format(DateTime.now()),
+                    style: AppTextStyles.labelMd.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                'Hôm nay: ${DateFormatter.formatFull(DateTime.now())}',
-                style: AppTextStyles.bodySm.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-              // ─── Stat Cards 2x2 Grid ───────────────────
+              // ─── Quick Actions (Phím tắt quản lý) ─────────
+              Text('Phím tắt quản lý', style: AppTextStyles.titleLg),
+              const SizedBox(height: 12),
+              GridView.count(
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.4,
+                children: [
+                  _buildShortcutButton(
+                    context: context,
+                    icon: Icons.meeting_room_outlined,
+                    label: 'Quản lý phòng',
+                    color: Theme.of(context).colorScheme.primary,
+                    route: AppRoutes.adminRooms,
+                  ),
+                  _buildShortcutButton(
+                    context: context,
+                    icon: Icons.people_outline,
+                    label: 'Khách thuê',
+                    color: AppColors.success,
+                    route: AppRoutes.adminTenants,
+                  ),
+                  _buildShortcutButton(
+                    context: context,
+                    icon: Icons.bolt,
+                    label: 'Nhập điện nước',
+                    color: AppColors.warning,
+                    route: AppRoutes.adminMeterReadings,
+                  ),
+                  _buildShortcutButton(
+                    context: context,
+                    icon: Icons.receipt_long_outlined,
+                    label: 'Tạo hóa đơn',
+                    color: AppColors.danger,
+                    route: AppRoutes.adminInvoices,
+                  ),
+                  _buildShortcutButton(
+                    context: context,
+                    icon: Icons.layers,
+                    label: 'Dịch vụ',
+                    color: const Color(0xFF7C3AED),
+                    route: AppRoutes.adminServices,
+                  ),
+                  _buildShortcutButton(
+                    context: context,
+                    icon: Icons.description_outlined,
+                    label: 'Hợp đồng',
+                    color: const Color(0xFF0891B2),
+                    route: AppRoutes.adminContracts,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+
+              // ─── Overview & Revenue ─────────────────────
               dashboardAsync.when(
                 data: (data) {
-                  return GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.5,
+                  final totalRevenue = data.monthlyRevenue;
+                  final paidAmount = data.monthlyCollectedAmount;
+                  final debtAmount = data.monthlyDebtAmount;
+                  final paidRatio = totalRevenue > 0
+                      ? paidAmount / totalRevenue
+                      : 0.0;
+                  final debtRatio = totalRevenue > 0
+                      ? debtAmount / totalRevenue
+                      : 0.0;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                       _buildMiniStatCard(
-                        context,
-                        'TỔNG SỐ PHÒNG',
-                        '${data.totalRooms ?? 0}',
-                        Icons.meeting_room_outlined,
-                        Theme.of(context).colorScheme.primary,
+                      // Overview Cards (Tổng quan tòa nhà)
+                      Text('Tổng quan tòa nhà', style: AppTextStyles.titleLg),
+                      const SizedBox(height: 12),
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.6,
+                        children: [
+                          _buildOverviewTile(
+                            context,
+                            'Tổng phòng',
+                            '${data.totalRooms}',
+                            Icons.apartment,
+                            Theme.of(context).colorScheme.primary,
+                            const Color(0xFFEFF4FF),
+                          ),
+                          _buildOverviewTile(
+                            context,
+                            'Đang thuê',
+                            '${data.occupiedRooms}',
+                            Icons.check_circle_outline,
+                            AppColors.success,
+                            const Color(0xFFE8FBF3),
+                          ),
+                          _buildOverviewTile(
+                            context,
+                            'Phòng trống',
+                            '${data.availableRooms}',
+                            Icons.meeting_room,
+                            Theme.of(context).colorScheme.tertiary,
+                            const Color(0xFFFFF8E1),
+                          ),
+                          _buildOverviewTile(
+                            context,
+                            'Đang sửa',
+                            '${data.maintenanceRooms}',
+                            Icons.build_outlined,
+                            AppColors.danger,
+                            const Color(0xFFFFDAD6),
+                          ),
+                        ],
                       ),
-                      _buildMiniStatCard(
-                        context,
-                        'ĐANG CHO THUÊ',
-                        '${data.occupiedRooms ?? 0}',
-                        Icons.people_outline,
-                        AppColors.success,
-                      ),
-                      _buildMiniStatCard(
-                        context,
-                        'DOANH THU THÁNG',
-                        CurrencyFormatter.compact(data.currentMonthRevenue),
-                        Icons.monetization_on_outlined,
-                        Theme.of(context).colorScheme.primaryContainer,
-                      ),
-                      _buildMiniStatCard(
-                        context,
-                        'TỔNG TIỀN NỢ',
-                        CurrencyFormatter.compact(data.currentMonthDebt),
-                        Icons.warning_amber_rounded,
-                        AppColors.danger,
+                      const SizedBox(height: 28),
+
+                      // Revenue Card (Doanh thu tháng này)
+                      Text('Doanh thu tháng này', style: AppTextStyles.titleLg),
+                      const SizedBox(height: 12),
+                      AppCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Tổng dự kiến thu',
+                              style: AppTextStyles.bodyMd.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              CurrencyFormatter.format(totalRevenue),
+                              style: AppTextStyles.headlineSm.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Progress 1: Đã thu
+                            _buildProgressRow(
+                              context: context,
+                              label: 'Đã thu',
+                              amount: paidAmount,
+                              ratio: paidRatio,
+                              color: AppColors.success,
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Progress 2: Còn nợ
+                            _buildProgressRow(
+                              context: context,
+                              label: 'Còn nợ',
+                              amount: debtAmount,
+                              ratio: debtRatio,
+                              color: Theme.of(context).colorScheme.tertiary,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // View detail button
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () =>
+                                    context.go(AppRoutes.adminInvoices),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  side: BorderSide(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outlineVariant,
+                                  ),
+                                ),
+                                icon: const Icon(Icons.arrow_forward, size: 18),
+                                label: const Text('Xem chi tiết hóa đơn'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   );
                 },
-                loading: () => GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 1.5,
-                  children: List.generate(4, (_) => const LoadingShimmer(height: 80)),
-                ),
-                error: (_, __) => Text(
-                  'Không thể tải thông tin thống kê',
-                  style: TextStyle(color: AppColors.danger),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // ─── Quick Actions Row ──────────────────────
-              Text('Phím tắt quản lý', style: AppTextStyles.titleLg),
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+                loading: () => const Column(
                   children: [
-                    _buildShortcutItem(context, 'Quản lý phòng', Icons.meeting_room, AppRoutes.adminRooms),
-                    _buildShortcutItem(context, 'Khách thuê', Icons.people, AppRoutes.adminTenants),
-                    _buildShortcutItem(context, 'Hợp đồng', Icons.description, AppRoutes.adminContracts),
-                    _buildShortcutItem(context, 'Hóa đơn', Icons.receipt_long, AppRoutes.adminInvoices),
-                    _buildShortcutItem(context, 'Chỉ số điện nước', Icons.bolt, AppRoutes.adminMeterReadings),
+                    CardShimmer(height: 160),
+                    SizedBox(height: 24),
+                    CardShimmer(height: 220),
                   ],
                 ),
-              ),
-              const SizedBox(height: 24),
-
-              // ─── Expiring Contracts ────────────────────
-              Text('Hợp đồng sắp hết hạn', style: AppTextStyles.titleLg),
-              const SizedBox(height: 12),
-              expiringContractsAsync.when(
-                data: (contracts) {
-                  if (contracts.isEmpty) {
-                    return nearestActiveContractsAsync.when(
-                      data: (nearestContracts) {
-                        if (nearestContracts.isEmpty) {
-                          return AppCard(
-                            child: Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 20),
-                                child: Text(
-                                  'Không có hợp đồng đang hiệu lực',
-                                  style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text(
-                                'Không có hợp đồng hết hạn trong 30 ngày. Dưới đây là các hợp đồng gần hết hạn nhất:',
-                                style: AppTextStyles.bodySm.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                              ),
-                            ),
-                            ...nearestContracts.map((c) => _buildContractTile(context, c)),
-                          ],
-                        );
-                      },
-                      loading: () => const CardShimmer(height: 80),
-                      error: (_, __) => Text(
-                        'Không thể tải hợp đồng đang hiệu lực',
-                        style: TextStyle(color: AppColors.danger),
-                      ),
-                    );
-                  }
-                  return Column(
-                    children: contracts.map((c) => _buildContractTile(context, c)).toList(),
-                  );
-                },
-                loading: () => const CardShimmer(height: 80),
-                error: (_, __) => Text(
-                  'Không thể tải hợp đồng sắp hết hạn',
-                  style: TextStyle(color: AppColors.danger),
+                error: (err, _) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'Lỗi tải dữ liệu tổng quan: $err',
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
-              // ─── Pending Maintenance ───────────────────
+              // ─── Unified Tasks (Công việc cần xử lý) ──────
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Yêu cầu sửa chữa chờ xử lý', style: AppTextStyles.titleLg),
+                  Text('Công việc cần xử lý', style: AppTextStyles.titleLg),
                   TextButton(
                     onPressed: () => context.go(AppRoutes.adminMaintenance),
                     child: const Text('Xem tất cả'),
@@ -242,58 +320,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Consumer(
-                builder: (context, ref, child) {
-                  final maintState = ref.watch(adminMaintenanceProvider);
-                  if (maintState.isLoading) {
-                    return const CardShimmer(height: 80);
-                  }
-                  final pending = maintState.items
-                      .where((item) =>
-                          item.status?.toUpperCase() == 'OPEN' ||
-                          item.status?.toUpperCase() == 'PENDING' ||
-                          item.status?.toUpperCase() == 'RECEIVED')
-                      .take(3)
-                      .toList();
-
-                  if (pending.isEmpty) {
-                    return AppCard(
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 20),
-                          child: Text(
-                            'Không có yêu cầu chờ xử lý nào',
-                            style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                  return Column(
-                    children: pending.map((item) {
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                        ),
-                        child: ListTile(
-                          title: Text(
-                            'Phòng ${item.roomNumber} - ${item.title}',
-                            style: AppTextStyles.titleSm,
-                          ),
-                          subtitle: Text(
-                            'Gửi ngày: ${DateFormatter.format(DateFormatter.tryParse(item.requestDate))}',
-                            style: AppTextStyles.bodySm,
-                          ),
-                          trailing: PriorityChip(priority: item.priority ?? 'MEDIUM'),
-                          onTap: () => context.go(AppRoutes.adminMaintenance),
-                        ),
-                      );
-                    }).toList(),
-                  );
-                },
+              _buildUnifiedTasksList(
+                context,
+                maintState,
+                expiringContractsAsync,
               ),
               const SizedBox(height: 40),
             ],
@@ -303,42 +333,66 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContractTile(BuildContext context, RentalContract contract) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: ListTile(
-        title: Text(
-          'Phòng ${contract.roomNumber ?? '—'} - ${contract.tenantName ?? 'Khách thuê'}',
-          style: AppTextStyles.titleSm,
+  // --- Helper Widgets ---
+
+  Widget _buildShortcutButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required Color color,
+    required String route,
+  }) {
+    return AppCard(
+      onTap: () => context.go(route),
+      padding: EdgeInsets.zero,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: AppTextStyles.titleSm.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
-        subtitle: Text(
-          'Hết hạn: ${DateFormatter.format(DateFormatter.tryParse(contract.endDate))}',
-          style: AppTextStyles.bodySm.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-        trailing: const StatusChip(status: 'DRAFT', label: 'Gần hết hạn'),
       ),
     );
   }
 
-  Widget _buildMiniStatCard(BuildContext context, String label, String value, IconData icon, Color color) {
+  Widget _buildOverviewTile(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    Color bgLight,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        color: isDark
+            ? Theme.of(context).colorScheme.surfaceContainerLowest
+            : bgLight.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(5),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          width: 0.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,21 +401,20 @@ class AdminDashboardScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Icon(icon, color: color, size: 20),
               Text(
                 label,
-                style: AppTextStyles.labelSm.copyWith(
+                style: AppTextStyles.bodySm.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.bold,
                 ),
               ),
-              Icon(icon, color: color, size: 20),
             ],
           ),
           Text(
             value,
-            style: AppTextStyles.titleLg.copyWith(
-              color: Theme.of(context).colorScheme.onSurface,
+            style: AppTextStyles.headlineSm.copyWith(
               fontWeight: FontWeight.bold,
+              color: color,
             ),
           ),
         ],
@@ -369,51 +422,269 @@ class AdminDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildShortcutItem(
+  Widget _buildProgressRow({
+    required BuildContext context,
+    required String label,
+    required double amount,
+    required double ratio,
+    required Color color,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: AppTextStyles.bodyMd.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              CurrencyFormatter.format(amount),
+              style: AppTextStyles.titleSm.copyWith(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: ratio,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 8,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUnifiedTasksList(
     BuildContext context,
-    String label,
-    IconData icon,
-    String route,
+    PaginatedState<MaintenanceRequest> maintState,
+    AsyncValue<List<RentalContract>> expiringContractsAsync,
   ) {
+    if (maintState.isLoading || expiringContractsAsync.isLoading) {
+      return const CardShimmer(height: 120);
+    }
+
+    final List<Widget> taskTiles = [];
+
+    // 1. Thêm các yêu cầu sửa chữa chờ xử lý (OPEN, RECEIVED)
+    final pendingMaint = maintState.items
+        .where(
+          (m) =>
+              m.status?.toUpperCase() == 'OPEN' ||
+              m.status?.toUpperCase() == 'RECEIVED' ||
+              m.status?.toUpperCase() == 'IN_PROGRESS',
+        )
+        .take(3)
+        .toList();
+
+    for (final m in pendingMaint) {
+      taskTiles.add(
+        _buildTaskItem(
+          context: context,
+          icon: Icons.build_outlined,
+          iconBg: AppColors.danger.withValues(alpha: 0.1),
+          iconColor: AppColors.danger,
+          type: 'Sửa chữa',
+          room: 'P.${m.roomNumber ?? '—'}',
+          detail: m.title ?? 'Yêu cầu sửa chữa thiết bị',
+          statusWidget: PriorityChip(priority: m.priority ?? 'MEDIUM'),
+          onTap: () {
+            if (m.id != null) {
+              context.push(
+                AppRoutes.adminMaintenanceDetail.replaceAll(
+                  ':id',
+                  m.id!.toString(),
+                ),
+              );
+            }
+          },
+        ),
+      );
+    }
+
+    // 2. Thêm các hợp đồng sắp hết hạn
+    expiringContractsAsync.whenData((contracts) {
+      final expiring = contracts.take(2).toList();
+      for (final c in expiring) {
+        taskTiles.add(
+          _buildTaskItem(
+            context: context,
+            icon: Icons.assignment_outlined,
+            iconBg: Theme.of(
+              context,
+            ).colorScheme.tertiary.withValues(alpha: 0.1),
+            iconColor: Theme.of(context).colorScheme.tertiary,
+            type: 'Hợp đồng',
+            room: 'P.${c.roomNumber ?? '—'}',
+            detail:
+                'Hết hạn vào: ${DateFormatter.format(DateFormatter.tryParse(c.endDate))}',
+            statusWidget: const StatusChip(
+              status: 'DRAFT',
+              label: 'Sắp hết hạn',
+            ),
+            onTap: () => context.go(AppRoutes.adminContracts),
+          ),
+        );
+      }
+    });
+
+    if (taskTiles.isEmpty) {
+      return AppCard(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'Không có công việc cần xử lý',
+              style: AppTextStyles.bodyMd.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(children: taskTiles);
+  }
+
+  Widget _buildTaskItem({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String type,
+    required String room,
+    required String detail,
+    required Widget statusWidget,
+    required VoidCallback onTap,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(right: 12),
-      child: InkWell(
-        onTap: () => context.go(route),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: 120,
-          padding: const EdgeInsets.all(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          width: 0.5,
+        ),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+            color: iconBg,
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer.withAlpha(15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: Theme.of(context).colorScheme.primaryContainer, size: 24),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        title: Row(
+          children: [
+            Text(
+              room,
+              style: AppTextStyles.titleSm.copyWith(
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: AppTextStyles.labelMd.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(4),
               ),
-            ],
+              child: Text(
+                type,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            detail,
+            style: AppTextStyles.bodySm.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            statusWidget,
+            const SizedBox(width: 4),
+            Icon(
+              Icons.chevron_right,
+              color: Theme.of(context).colorScheme.outline,
+              size: 16,
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: const Text('Đăng xuất'),
+          content: const Text(
+            'Bạn có chắc chắn muốn đăng xuất khỏi tài khoản admin không?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Đăng xuất',
+                style: TextStyle(color: AppColors.danger),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirm == true && context.mounted) {
+      await ref.read(authControllerProvider.notifier).logout();
+      if (context.mounted) {
+        context.go(AppRoutes.login);
+      }
+    }
   }
 }

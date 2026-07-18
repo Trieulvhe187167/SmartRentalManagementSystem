@@ -62,6 +62,8 @@ class ServiceRequest {
   final String? chargeType;
   final String? description;
   final bool? active;
+  final double? initialUnitPrice;
+  final String? priceEffectiveFrom;
 
   const ServiceRequest({
     required this.name,
@@ -71,6 +73,8 @@ class ServiceRequest {
     this.chargeType,
     this.description,
     this.active,
+    this.initialUnitPrice,
+    this.priceEffectiveFrom,
   });
 
   Map<String, dynamic> toJson() => {
@@ -81,6 +85,8 @@ class ServiceRequest {
     'chargeType': chargeType ?? _chargeTypeFromServiceType(type),
     if (description != null) 'description': description,
     if (active != null) 'active': active,
+    if (initialUnitPrice != null) 'initialUnitPrice': initialUnitPrice,
+    if (priceEffectiveFrom != null) 'priceEffectiveFrom': priceEffectiveFrom,
   };
 }
 
