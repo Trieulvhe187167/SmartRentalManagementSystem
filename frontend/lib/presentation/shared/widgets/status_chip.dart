@@ -62,6 +62,7 @@ class StatusChip extends StatelessWidget {
       'EXPIRED' => 'Hết hạn',
       'TERMINATED' => 'Đã chấm dứt',
       'PENDING_APPROVAL' => 'Chờ duyệt',
+      'PENDING_CONFIRMATION' => 'Chờ khách xác nhận',
       'AVAILABLE' => 'Trống',
       'OCCUPIED' => 'Đã thuê',
       'MAINTENANCE' => 'Bảo trì',

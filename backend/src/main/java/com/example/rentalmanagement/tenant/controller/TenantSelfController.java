@@ -57,6 +57,7 @@ import com.example.rentalmanagement.serviceitem.repository.*;
 import com.example.rentalmanagement.tenant.*;
 import com.example.rentalmanagement.tenant.dto.*;
 import com.example.rentalmanagement.tenant.repository.*;
+import com.example.rentalmanagement.tenant.service.TenantProfileSelfService;
 import com.example.rentalmanagement.user.*;
 import com.example.rentalmanagement.user.dto.*;
 import com.example.rentalmanagement.user.repository.*;
@@ -67,11 +68,13 @@ public class TenantSelfController {
     private final PropertyService property;
     private final ContractManagementService contracts;
     private final CurrentUser currentUser;
+    private final TenantProfileSelfService profileService;
 
-    public TenantSelfController(PropertyService property, ContractManagementService contracts, CurrentUser currentUser) {
+    public TenantSelfController(PropertyService property, ContractManagementService contracts, CurrentUser currentUser, TenantProfileSelfService profileService) {
         this.property = property;
         this.contracts = contracts;
         this.currentUser = currentUser;
+        this.profileService = profileService;
     }
 
     @GetMapping("/profile")
@@ -79,9 +82,43 @@ public class TenantSelfController {
         return ApiResponse.success(property.tenantProfileForUser(currentUser.userId()));
     }
 
+    @PatchMapping("/profile")
+    public ApiResponse<UserResponse> updateProfile(@Valid @RequestBody TenantSelfProfileUpdateRequest request) {
+        return ApiResponse.success("Profile updated", profileService.updateProfile(currentUser.userId(), request));
+    }
+
+    @PostMapping("/profile/email/request")
+    public ApiResponse<EmailChangeStartResponse> requestEmailChange(@Valid @RequestBody EmailChangeRequest request) {
+        return ApiResponse.success(profileService.requestEmailChange(currentUser.userId(), request));
+    }
+
+    @PostMapping("/profile/email/verify")
+    public ApiResponse<UserResponse> verifyEmailChange(@Valid @RequestBody EmailChangeVerifyRequest request) {
+        return ApiResponse.success("Email updated", profileService.verifyEmailChange(currentUser.userId(), request));
+    }
+
     @GetMapping("/contracts/current")
     public ApiResponse<RentalContract> currentContract() {
         return ApiResponse.success(contracts.tenantCurrentContract(currentUser.userId()));
+    }
+
+    @PutMapping("/contracts/{id}/confirm")
+    public ApiResponse<RentalContract> confirmContract(@PathVariable Long id) {
+        return ApiResponse.success(
+                "Contract confirmed",
+                contracts.confirmByTenant(currentUser.userId(), id)
+        );
+    }
+
+    @PutMapping("/contracts/{id}/reject")
+    public ApiResponse<RentalContract> rejectContract(
+            @PathVariable Long id,
+            @Valid @RequestBody ContractRejectionRequest request
+    ) {
+        return ApiResponse.success(
+                "Contract rejected",
+                contracts.rejectByTenant(currentUser.userId(), id, request)
+        );
     }
 
     @GetMapping("/contracts/history")

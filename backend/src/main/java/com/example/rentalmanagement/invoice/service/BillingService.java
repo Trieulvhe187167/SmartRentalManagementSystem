@@ -229,7 +229,7 @@ public class BillingService {
                 type = InvoiceItemType.METERED_SERVICE;
                 meterReading = reading;
             } else if (cs.serviceItem.chargeType == ServiceChargeType.FIXED_PER_PERSON) {
-                qty = BigDecimal.valueOf(1 + contractOccupants.countByContractIdAndMoveOutDateIsNullAndIsDeletedFalse(contract.id));
+                qty = residentQuantity(contract.id, billingDate);
                 type = InvoiceItemType.FIXED_SERVICE;
             } else {
                 qty = BigDecimal.ONE;
@@ -240,6 +240,10 @@ public class BillingService {
         entityManager.flush();
         entityManager.refresh(invoice);
         return invoice;
+    }
+
+    BigDecimal residentQuantity(Long contractId, LocalDate billingDate) {
+        return BigDecimal.valueOf(1 + contractOccupants.countActiveOnDate(contractId, billingDate));
     }
 
     @Transactional

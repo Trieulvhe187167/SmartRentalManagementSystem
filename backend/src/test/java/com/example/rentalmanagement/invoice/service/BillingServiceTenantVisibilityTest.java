@@ -30,6 +30,8 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
+import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -76,11 +78,11 @@ class BillingServiceTenantVisibilityTest {
                 users,
                 entityManager
         );
-        when(currentUser.userId()).thenReturn(42L);
     }
 
     @Test
     void tenantInvoiceListQueriesOnlyPublishedStatuses() {
+        when(currentUser.userId()).thenReturn(42L);
         Pageable pageable = PageRequest.of(0, 20);
         when(invoices.findByTenantProfileUserIdAndStatusInAndIsDeletedFalse(
                 eq(42L),
@@ -105,6 +107,7 @@ class BillingServiceTenantVisibilityTest {
 
     @Test
     void tenantCannotOpenDraftInvoiceById() {
+        when(currentUser.userId()).thenReturn(42L);
         when(invoices.findByIdAndTenantProfileUserIdAndStatusInAndIsDeletedFalse(
                 eq(99L),
                 eq(42L),
@@ -112,5 +115,16 @@ class BillingServiceTenantVisibilityTest {
         )).thenReturn(Optional.empty());
 
         assertThrows(NotFoundException.class, () -> billingService.tenantInvoice(99L));
+    }
+
+    @Test
+    void perPersonQuantityUsesResidentsActiveAtTheStartOfBillingMonth() {
+        LocalDate billingDate = LocalDate.of(2026, 7, 1);
+        when(contractOccupants.countActiveOnDate(10L, billingDate)).thenReturn(1L);
+
+        BigDecimal quantity = billingService.residentQuantity(10L, billingDate);
+
+        assertEquals(new BigDecimal("2"), quantity);
+        verify(contractOccupants).countActiveOnDate(10L, billingDate);
     }
 }

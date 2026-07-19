@@ -92,6 +92,7 @@ class AppColors {
       case 'DRAFT':
       case 'PARTIALLY_PAID':
       case 'PENDING_APPROVAL':
+      case 'PENDING_CONFIRMATION':
         return warning;
       case 'AVAILABLE':
         return success;
@@ -118,6 +119,7 @@ class AppColors {
       case 'DRAFT':
       case 'PARTIALLY_PAID':
       case 'PENDING_APPROVAL':
+      case 'PENDING_CONFIRMATION':
         return warningLight;
       case 'ISSUED':
       case 'PENDING':

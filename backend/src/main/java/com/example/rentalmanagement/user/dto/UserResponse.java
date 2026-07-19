@@ -57,7 +57,7 @@ import com.example.rentalmanagement.tenant.repository.*;
 import com.example.rentalmanagement.user.*;
 import com.example.rentalmanagement.user.repository.*;
 
-public record UserResponse(Long id, String username, String role, UserStatus status, boolean mustChangePassword, String fullName, String phone, String email, String idNumber, String address) {
+public record UserResponse(Long id, String username, String role, UserStatus status, boolean mustChangePassword, String fullName, String phone, String email, String idNumber, String address, String avatarData) {
     public static UserResponse from(User user) {
         return new UserResponse(
                 user.getId(),
@@ -69,7 +69,8 @@ public record UserResponse(Long id, String username, String role, UserStatus sta
                 user.getPhone(),
                 user.getEmail(),
                 null,
-                null
+                null,
+                user.getAvatarData()
         );
     }
 
@@ -87,7 +88,8 @@ public record UserResponse(Long id, String username, String role, UserStatus sta
                 user.getPhone(),
                 user.getEmail(),
                 profile.identityNumber,
-                profile.permanentAddress
+                profile.permanentAddress,
+                user.getAvatarData()
         );
     }
 }

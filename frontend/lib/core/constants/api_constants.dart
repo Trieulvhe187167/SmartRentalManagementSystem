@@ -22,6 +22,10 @@ class ApiConstants {
 
   // ─── Tenant ──────────────────────────────────────────────
   static const String tenantDashboard = '/tenant/dashboard';
+  static const String tenantProfile = '/tenant/profile';
+  static const String tenantProfileEmailRequest =
+      '/tenant/profile/email/request';
+  static const String tenantProfileEmailVerify = '/tenant/profile/email/verify';
   static const String tenantCurrentRoom = '/tenant/current-room';
   static const String tenantCurrentInvoice = '/tenant/current-invoice';
   static const String tenantCurrentDebt = '/tenant/current-debt';
@@ -30,6 +34,8 @@ class ApiConstants {
   static const String tenantMeterReadings = '/tenant/meter-readings';
   static const String tenantDebt = '/tenant/debt';
   static const String tenantMaintenance = '/tenant/maintenance-requests';
+  static const String tenantContracts = '/tenant/contracts';
+  static const String tenantCurrentContract = '/tenant/contracts/current';
   static const String tenantNotifications = '/notifications';
   static const String tenantMaintenanceRequests = tenantMaintenance;
   static const String tenantNotificationsUnreadCount =

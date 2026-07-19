@@ -56,4 +56,12 @@ import com.example.rentalmanagement.user.*;
 import com.example.rentalmanagement.user.dto.*;
 import com.example.rentalmanagement.user.repository.*;
 
-public enum ContractStatus { DRAFT, ACTIVE, TERMINATED, EXPIRED, CANCELLED }
+public enum ContractStatus {
+    DRAFT,
+    PENDING_CONFIRMATION,
+    ACTIVE,
+    REJECTED,
+    TERMINATED,
+    EXPIRED,
+    CANCELLED
+}
