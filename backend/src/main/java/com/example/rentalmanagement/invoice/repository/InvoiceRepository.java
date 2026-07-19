@@ -90,7 +90,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             select i from Invoice i
             where i.isDeleted = false
               and i.status in :statuses
+              and (:billingMonth is null or i.billingMonth = :billingMonth)
+              and (:billingYear is null or i.billingYear = :billingYear)
             order by i.dueDate asc
             """)
-    public Page<Invoice> debts(@Param("statuses") Collection<InvoiceStatus> statuses, Pageable pageable);
+    public Page<Invoice> debts(@Param("statuses") Collection<InvoiceStatus> statuses,
+                               @Param("billingMonth") Integer billingMonth,
+                               @Param("billingYear") Integer billingYear,
+                               Pageable pageable);
 }

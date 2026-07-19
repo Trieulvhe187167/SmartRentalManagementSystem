@@ -65,6 +65,7 @@ import com.example.rentalmanagement.user.repository.*;
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     public Page<Payment> findByInvoiceTenantProfileUserId(Long userId, Pageable pageable);
     public List<Payment> findByInvoiceIdAndStatus(Long invoiceId, PaymentStatus status);
+    public List<Payment> findByInvoiceIdOrderByPaymentDateDesc(Long invoiceId);
 
     @Query("""
             select p from Payment p

@@ -144,7 +144,7 @@ public class BillingController {
     }
 
     @PutMapping("/admin/invoices/{id}/cancel")
-    public ApiResponse<Invoice> cancel(@PathVariable Long id, @RequestBody(required = false) InvoiceCancelRequest request) {
+    public ApiResponse<Invoice> cancel(@PathVariable Long id, @Valid @RequestBody InvoiceCancelRequest request) {
         return ApiResponse.success(billing.cancel(id, request));
     }
 
@@ -172,8 +172,10 @@ public class BillingController {
     }
 
     @GetMapping("/admin/debts")
-    public ApiResponse<PageResponse<Invoice>> debts(Pageable pageable) {
-        return ApiResponse.success(PageResponse.from(billing.debts(pageable)));
+    public ApiResponse<PageResponse<Invoice>> debts(@RequestParam(required = false) Integer month,
+                                                    @RequestParam(required = false) Integer year,
+                                                    Pageable pageable) {
+        return ApiResponse.success(PageResponse.from(billing.debts(month, year, pageable)));
     }
 
     @GetMapping("/tenant/invoices")

@@ -150,15 +150,44 @@ public class DashboardService {
         );
     }
 
-    public java.util.Map<String, BigDecimal> revenueSummary() {
-        java.util.Map<String, BigDecimal> result = new java.util.HashMap<>();
-        for (Invoice i : invoices.findAll()) {
-            if (i.isDeleted == false && i.billingYear != null && i.billingMonth != null && i.status != InvoiceStatus.CANCELLED) {
-                String key = String.format("%d-%02d", i.billingYear, i.billingMonth);
-                BigDecimal currentVal = result.getOrDefault(key, BigDecimal.ZERO);
-                BigDecimal paid = i.paidAmount != null ? i.paidAmount : BigDecimal.ZERO;
-                result.put(key, currentVal.add(paid));
-            }
+    public List<MonthlyRevenueResponse> revenueSummary(Integer requestedYear) {
+        int year = requestedYear == null ? LocalDate.now().getYear() : requestedYear;
+        if (year < 2000 || year > 2100) {
+            throw new BusinessException("Year must be between 2000 and 2100", "DASHBOARD_YEAR_INVALID", HttpStatus.BAD_REQUEST);
+        }
+
+        List<Invoice> yearInvoices = invoices.findAll().stream()
+                .filter(invoice -> !invoice.isDeleted)
+                .filter(invoice -> Objects.equals(invoice.billingYear, year))
+                .filter(invoice -> TENANT_VISIBLE_INVOICE_STATUSES.contains(invoice.status))
+                .toList();
+        List<MonthlyRevenueResponse> result = new ArrayList<>(12);
+        for (int month = 1; month <= 12; month++) {
+            final int currentMonth = month;
+            List<Invoice> monthInvoices = yearInvoices.stream()
+                    .filter(invoice -> Objects.equals(invoice.billingMonth, currentMonth))
+                    .toList();
+            BigDecimal total = monthInvoices.stream()
+                    .map(invoice -> amountOrZero(invoice.totalAmount))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal collected = monthInvoices.stream()
+                    .map(invoice -> amountOrZero(invoice.paidAmount))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal debt = monthInvoices.stream()
+                    .map(DashboardService::remainingAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            long paidInvoices = monthInvoices.stream()
+                    .filter(invoice -> invoice.status == InvoiceStatus.PAID)
+                    .count();
+            result.add(new MonthlyRevenueResponse(
+                    month,
+                    year,
+                    total,
+                    collected,
+                    debt,
+                    monthInvoices.size(),
+                    paidInvoices
+            ));
         }
         return result;
     }

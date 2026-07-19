@@ -81,8 +81,9 @@ public class DashboardController {
     }
 
     @GetMapping("/admin/dashboard/revenue")
-    public ApiResponse<java.util.Map<String, java.math.BigDecimal>> revenue() {
-        return ApiResponse.success(dashboard.revenueSummary());
+    public ApiResponse<java.util.List<MonthlyRevenueResponse>> revenue(
+            @RequestParam(required = false) Integer year) {
+        return ApiResponse.success(dashboard.revenueSummary(year));
     }
 
     @GetMapping("/admin/dashboard/contracts-expiring")

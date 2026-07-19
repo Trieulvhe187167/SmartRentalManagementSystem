@@ -57,5 +57,7 @@ import com.example.rentalmanagement.user.*;
 import com.example.rentalmanagement.user.dto.*;
 import com.example.rentalmanagement.user.repository.*;
 
-public record InvoiceCancelRequest(String cancellationReason) {
+public record InvoiceCancelRequest(
+        @NotBlank @Size(max = 500) String cancellationReason
+) {
 }
