@@ -324,7 +324,7 @@ class AdminContractsNotifier
       fetchContracts(refresh: true);
       return null;
     } catch (e) {
-      return e.toString();
+      return e is ApiException ? e.message : e.toString();
     }
   }
 

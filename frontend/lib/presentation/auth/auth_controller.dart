@@ -165,6 +165,11 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> refreshUser() async {
+    final user = await _repository.me();
+    state = state.copyWith(status: AuthStatus.authenticated, user: user);
+  }
+
   /// Logout
   Future<void> logout() async {
     try {

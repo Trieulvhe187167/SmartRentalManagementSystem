@@ -77,6 +77,9 @@ public class User extends AuditableEntity {
     public String phone;
     @Column(unique = true, length = 150)
     public String email;
+    @Lob
+    @Column(name = "avatar_data", columnDefinition = "LONGTEXT")
+    public String avatarData;
     public LocalDateTime lastLoginAt;
 
     public String roleName() {
@@ -109,6 +112,10 @@ public class User extends AuditableEntity {
 
     public String getPhone() {
         return phone;
+    }
+
+    public String getAvatarData() {
+        return avatarData;
     }
 
     public void setMustChangePassword(boolean mustChangePassword) {

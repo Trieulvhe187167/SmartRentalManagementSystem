@@ -64,6 +64,18 @@ import com.example.rentalmanagement.user.repository.*;
 
 public interface ContractOccupantRepository extends JpaRepository<ContractOccupant, Long> {
     public long countByContractIdAndMoveOutDateIsNullAndIsDeletedFalse(Long contractId);
+    @Query("""
+            select count(co) from ContractOccupant co
+            where co.contract.id = :contractId
+              and co.isDeleted = false
+              and co.moveInDate <= :asOfDate
+              and (co.moveOutDate is null or co.moveOutDate >= :asOfDate)
+            """)
+    public long countActiveOnDate(
+            @Param("contractId") Long contractId,
+            @Param("asOfDate") LocalDate asOfDate
+    );
     public Page<ContractOccupant> findByContractIdAndIsDeletedFalse(Long contractId, Pageable pageable);
+    public List<ContractOccupant> findByContractIdAndIsDeletedFalseOrderByMoveInDateAsc(Long contractId);
     public Optional<ContractOccupant> findByContractIdAndOccupantIdAndIsDeletedFalse(Long contractId, Long occupantId);
 }

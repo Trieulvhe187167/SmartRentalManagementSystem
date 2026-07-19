@@ -100,6 +100,20 @@ public class ContractController {
         return ApiResponse.success("Created", contracts.addOccupant(id, request));
     }
 
+    @GetMapping("/contracts/{id}/occupants")
+    public ApiResponse<List<ContractOccupant>> occupants(@PathVariable Long id) {
+        return ApiResponse.success(contracts.contractOccupantList(id));
+    }
+
+    @PostMapping("/contracts/{id}/occupants/new")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<ContractOccupant> createOccupant(
+            @PathVariable Long id,
+            @Valid @RequestBody ContractOccupantCreateRequest request
+    ) {
+        return ApiResponse.success("Created", contracts.createAndAddOccupant(id, request));
+    }
+
     @DeleteMapping("/contracts/{id}/occupants/{occupantId}")
     public ApiResponse<ContractOccupant> removeOccupant(@PathVariable Long id, @PathVariable Long occupantId) {
         return ApiResponse.success(contracts.removeOrMoveOutOccupant(id, occupantId));

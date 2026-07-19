@@ -53,6 +53,9 @@ app:
     mail-enabled: ${PASSWORD_RESET_MAIL_ENABLED:false}
     frontend-reset-url: ${PASSWORD_RESET_FRONTEND_URL:http://localhost:3000/#/reset-password}
     from-address: ${PASSWORD_RESET_FROM_ADDRESS:no-reply@lumina.local}
+  email-change:
+    mail-enabled: ${EMAIL_CHANGE_MAIL_ENABLED:${PASSWORD_RESET_MAIL_ENABLED:false}}
+    from-address: ${EMAIL_CHANGE_FROM_ADDRESS:${PASSWORD_RESET_FROM_ADDRESS:no-reply@lumina.local}}
 
 springdoc:
   swagger-ui:

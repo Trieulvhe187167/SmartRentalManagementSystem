@@ -12,23 +12,38 @@ import '../shared/widgets/loading_shimmer.dart';
 import 'admin_controller.dart';
 
 final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
-  final res = await AdminRepository.instance.rooms(status: 'AVAILABLE', size: 100);
+  final res = await AdminRepository.instance.rooms(
+    status: 'AVAILABLE',
+    size: 100,
+  );
   return res.content;
 });
 
 final activeTenantsProvider = FutureProvider<List<TenantProfile>>((ref) async {
-  final res = await AdminRepository.instance.tenants(size: 100);
-  return res.content;
+  final tenantPage = await AdminRepository.instance.tenants(size: 100);
+  final contractPage = await AdminRepository.instance.contracts(size: 100);
+  final unavailableTenantIds = <int>{
+    for (final contract in contractPage.content)
+      if ((contract.status == 'ACTIVE' ||
+              contract.status == 'PENDING_CONFIRMATION') &&
+          contract.tenantProfileId != null)
+        contract.tenantProfileId!,
+  };
+  return tenantPage.content
+      .where((tenant) => !unavailableTenantIds.contains(tenant.id))
+      .toList();
 });
 
 class AdminCreateContractScreen extends ConsumerStatefulWidget {
   const AdminCreateContractScreen({super.key});
 
   @override
-  ConsumerState<AdminCreateContractScreen> createState() => _AdminCreateContractScreenState();
+  ConsumerState<AdminCreateContractScreen> createState() =>
+      _AdminCreateContractScreenState();
 }
 
-class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractScreen> {
+class _AdminCreateContractScreenState
+    extends ConsumerState<AdminCreateContractScreen> {
   final _formKey = GlobalKey<FormState>();
   final _rentCtrl = TextEditingController();
   final _depositCtrl = TextEditingController();
@@ -79,15 +94,30 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedRoomId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn phòng trống'), backgroundColor: AppColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn phòng trống'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
     if (_selectedTenantId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn khách thuê'), backgroundColor: AppColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn khách thuê'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
     if (_startDate == null || _endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng chọn thời hạn hợp đồng'), backgroundColor: AppColors.error));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng chọn thời hạn hợp đồng'),
+          backgroundColor: AppColors.error,
+        ),
+      );
       return;
     }
 
@@ -103,7 +133,9 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
       notes: _notesCtrl.text.trim(),
     );
 
-    final error = await ref.read(adminContractsProvider.notifier).createContract(req);
+    final error = await ref
+        .read(adminContractsProvider.notifier)
+        .createContract(req);
 
     setState(() => _submitting = false);
 
@@ -111,7 +143,10 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
 
     if (error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tạo hợp đồng thành công!'), backgroundColor: AppColors.success),
+        const SnackBar(
+          content: Text('Đã tạo và gửi hợp đồng cho khách thuê xác nhận.'),
+          backgroundColor: AppColors.success,
+        ),
       );
       ref.invalidate(availableRoomsProvider);
       ref.invalidate(adminRoomsProvider);
@@ -150,11 +185,13 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
                     labelText: 'Chọn phòng trống',
                     prefixIcon: Icon(Icons.meeting_room_outlined),
                   ),
-                  value: _selectedRoomId,
+                  initialValue: _selectedRoomId,
                   items: rooms.map((r) {
                     return DropdownMenuItem(
                       value: r.id,
-                      child: Text('Phòng ${r.roomNumber} - ${CurrencyFormatter.format(r.monthlyRent)}'),
+                      child: Text(
+                        'Phòng ${r.roomNumber} - ${CurrencyFormatter.format(r.monthlyRent)}',
+                      ),
                     );
                   }).toList(),
                   onChanged: (id) {
@@ -162,35 +199,53 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
                       _selectedRoomId = id;
                       if (id != null) {
                         final room = rooms.firstWhere((r) => r.id == id);
-                        _rentCtrl.text = (room.monthlyRent ?? 0).toStringAsFixed(0);
-                        _depositCtrl.text = (room.monthlyRent ?? 0).toStringAsFixed(0); // default deposit = 1 month rent
+                        _rentCtrl.text = room.monthlyRent.toStringAsFixed(0);
+                        _depositCtrl.text = room.monthlyRent.toStringAsFixed(
+                          0,
+                        ); // default deposit = 1 month rent
                       }
                     });
                   },
                 ),
                 loading: () => const LoadingShimmer(height: 52),
-                error: (e, _) => Text('Lỗi tải phòng: $e', style: TextStyle(color: AppColors.danger)),
+                error: (e, _) => Text(
+                  'Lỗi tải phòng: $e',
+                  style: TextStyle(color: AppColors.danger),
+                ),
               ),
               const SizedBox(height: 16),
 
               // Tenant Selection
               tenantsAsync.when(
-                data: (tenants) => DropdownButtonFormField<int>(
-                  decoration: const InputDecoration(
-                    labelText: 'Chọn khách hàng',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                  value: _selectedTenantId,
-                  items: tenants.map((t) {
-                    return DropdownMenuItem(
-                      value: t.id,
-                      child: Text('${t.fullName} - ${t.phone}'),
-                    );
-                  }).toList(),
-                  onChanged: (id) => setState(() => _selectedTenantId = id),
-                ),
+                data: (tenants) => tenants.isEmpty
+                    ? const ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.person_off_outlined),
+                        title: Text('Không còn khách thuê đủ điều kiện'),
+                        subtitle: Text(
+                          'Mỗi khách chỉ được có một hợp đồng hiệu lực hoặc đang chờ xác nhận.',
+                        ),
+                      )
+                    : DropdownButtonFormField<int>(
+                        decoration: const InputDecoration(
+                          labelText: 'Chọn khách hàng chưa có hợp đồng',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        initialValue: _selectedTenantId,
+                        items: tenants.map((t) {
+                          return DropdownMenuItem(
+                            value: t.id,
+                            child: Text('${t.fullName} - ${t.phone}'),
+                          );
+                        }).toList(),
+                        onChanged: (id) =>
+                            setState(() => _selectedTenantId = id),
+                      ),
                 loading: () => const LoadingShimmer(height: 52),
-                error: (e, _) => Text('Lỗi tải khách thuê: $e', style: TextStyle(color: AppColors.danger)),
+                error: (e, _) => Text(
+                  'Lỗi tải khách thuê: $e',
+                  style: TextStyle(color: AppColors.danger),
+                ),
               ),
               const SizedBox(height: 24),
               const Divider(),
@@ -205,8 +260,14 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
                     child: InkWell(
                       onTap: () => _selectStartDate(context),
                       child: InputDecorator(
-                        decoration: const InputDecoration(labelText: 'Ngày bắt đầu'),
-                        child: Text(_startDate == null ? 'Chọn ngày' : DateFormatter.format(_startDate)),
+                        decoration: const InputDecoration(
+                          labelText: 'Ngày bắt đầu',
+                        ),
+                        child: Text(
+                          _startDate == null
+                              ? 'Chọn ngày'
+                              : DateFormatter.format(_startDate),
+                        ),
                       ),
                     ),
                   ),
@@ -215,8 +276,14 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
                     child: InkWell(
                       onTap: () => _selectEndDate(context),
                       child: InputDecorator(
-                        decoration: const InputDecoration(labelText: 'Ngày kết thúc'),
-                        child: Text(_endDate == null ? 'Chọn ngày' : DateFormatter.format(_endDate)),
+                        decoration: const InputDecoration(
+                          labelText: 'Ngày kết thúc',
+                        ),
+                        child: Text(
+                          _endDate == null
+                              ? 'Chọn ngày'
+                              : DateFormatter.format(_endDate),
+                        ),
                       ),
                     ),
                   ),
@@ -239,7 +306,9 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
                         prefixIcon: Icon(Icons.payments_outlined),
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập giá thuê' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nhập giá thuê'
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -251,7 +320,9 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
                         prefixIcon: Icon(Icons.savings_outlined),
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nhập tiền cọc' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nhập tiền cọc'
+                          : null,
                     ),
                   ),
                 ],
@@ -275,8 +346,12 @@ class _AdminCreateContractScreenState extends ConsumerState<AdminCreateContractS
                 child: ElevatedButton(
                   onPressed: _submitting ? null : _submit,
                   child: _submitting
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white))
-                      : const Text('Tạo hợp đồng thuê'),
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white),
+                        )
+                      : const Text('Tạo và gửi khách xác nhận'),
                 ),
               ),
             ],

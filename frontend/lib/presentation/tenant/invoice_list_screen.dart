@@ -70,7 +70,8 @@ class _TenantInvoiceListScreenState
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Danh sách Hóa đơn'),
+        automaticallyImplyLeading: false,
+        title: const Text('Hóa đơn'),
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
         elevation: 0,
       ),

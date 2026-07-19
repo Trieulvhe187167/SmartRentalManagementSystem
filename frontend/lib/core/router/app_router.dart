@@ -13,6 +13,7 @@ import '../../presentation/auth/change_password_screen.dart';
 import '../../presentation/auth/forgot_password_screen.dart';
 import '../../presentation/auth/reset_password_screen.dart';
 import '../../presentation/tenant/home_screen.dart';
+import '../../presentation/tenant/contract_screen.dart';
 import '../../presentation/tenant/invoice_detail_screen.dart';
 import '../../presentation/tenant/invoice_list_screen.dart';
 import '../../presentation/tenant/maintenance_screen.dart';
@@ -50,6 +51,7 @@ class AppRoutes {
 
   // Tenant
   static const tenantHome = '/tenant/home';
+  static const tenantContract = '/tenant/contract';
   static const tenantInvoices = '/tenant/invoices';
   static const tenantInvoiceDetail = '/tenant/invoices/:id';
   static const tenantMaintenance = '/tenant/maintenance';
@@ -188,13 +190,21 @@ final _routes = <RouteBase>[
     builder: (context, state) => const NetworkErrorScreen(),
   ),
 
-  // ─── Tenant ────────────────────────────────────────────
+  // ─── Tenant ────────────────────────────────────────
   ShellRoute(
     builder: (context, state, child) => TenantShell(child: child),
     routes: [
       GoRoute(
         path: AppRoutes.tenantHome,
         builder: (context, state) => const TenantHomeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.tenantContract,
+        builder: (context, state) => const TenantContractScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.tenantInvoices,
+        builder: (context, state) => const TenantInvoiceListScreen(),
       ),
       GoRoute(
         path: AppRoutes.tenantMaintenance,
@@ -209,10 +219,6 @@ final _routes = <RouteBase>[
         builder: (context, state) => const TenantProfileScreen(),
       ),
     ],
-  ),
-  GoRoute(
-    path: AppRoutes.tenantInvoices,
-    builder: (context, state) => const TenantInvoiceListScreen(),
   ),
   GoRoute(
     path: AppRoutes.tenantInvoiceDetail,
@@ -324,8 +330,9 @@ class TenantShell extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     int currentIndex = 0;
     if (location == AppRoutes.tenantHome) currentIndex = 0;
-    if (location == AppRoutes.tenantMaintenance) currentIndex = 1;
-    if (location == AppRoutes.tenantNotifications) currentIndex = 2;
+    if (location == AppRoutes.tenantInvoices ||
+        location.startsWith('/tenant/invoices')) currentIndex = 1;
+    if (location == AppRoutes.tenantMaintenance) currentIndex = 2;
     if (location == AppRoutes.tenantProfile) currentIndex = 3;
 
     return Scaffold(
@@ -337,9 +344,9 @@ class TenantShell extends StatelessWidget {
             case 0:
               context.go(AppRoutes.tenantHome);
             case 1:
-              context.go(AppRoutes.tenantMaintenance);
+              context.go(AppRoutes.tenantInvoices);
             case 2:
-              context.go(AppRoutes.tenantNotifications);
+              context.go(AppRoutes.tenantMaintenance);
             case 3:
               context.go(AppRoutes.tenantProfile);
           }
@@ -351,14 +358,14 @@ class TenantShell extends StatelessWidget {
             label: 'Trang chủ',
           ),
           NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Hóa đơn',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.build_outlined),
             selectedIcon: Icon(Icons.build),
             label: 'Sửa chữa',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications),
-            label: 'Thông báo',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outlined),
@@ -370,6 +377,7 @@ class TenantShell extends StatelessWidget {
     );
   }
 }
+
 
 // ─── Admin Shell (bottom nav) ────────────────────────────
 class AdminShell extends StatelessWidget {
