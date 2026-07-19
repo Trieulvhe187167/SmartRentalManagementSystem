@@ -14,10 +14,12 @@ class AdminMaintenanceManagementScreen extends ConsumerStatefulWidget {
   const AdminMaintenanceManagementScreen({super.key});
 
   @override
-  ConsumerState<AdminMaintenanceManagementScreen> createState() => _AdminMaintenanceManagementScreenState();
+  ConsumerState<AdminMaintenanceManagementScreen> createState() =>
+      _AdminMaintenanceManagementScreenState();
 }
 
-class _AdminMaintenanceManagementScreenState extends ConsumerState<AdminMaintenanceManagementScreen> {
+class _AdminMaintenanceManagementScreenState
+    extends ConsumerState<AdminMaintenanceManagementScreen> {
   final _scrollController = ScrollController();
   String _selectedStatus = 'ALL';
 
@@ -34,7 +36,8 @@ class _AdminMaintenanceManagementScreenState extends ConsumerState<AdminMaintena
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       ref.read(adminMaintenanceProvider.notifier).fetchRequests();
     }
   }
@@ -46,74 +49,83 @@ class _AdminMaintenanceManagementScreenState extends ConsumerState<AdminMaintena
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('YĂªu cáº§u sá»­a chá»¯a'),
+        title: const Text('Yêu cầu sửa chữa'),
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.read(adminMaintenanceProvider.notifier).fetchRequests(refresh: true);
+          ref
+              .read(adminMaintenanceProvider.notifier)
+              .fetchRequests(refresh: true);
         },
         child: Column(
           children: [
-            // â”€â”€â”€ Filter Status Chips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ─── Filter Status Chips ────────────────────
             Container(
               height: 60,
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
               child: ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 children: [
-                  _buildFilterChip('ALL', 'Táº¥t cáº£'),
+                  _buildFilterChip('ALL', 'Tất cả'),
                   const SizedBox(width: 8),
-                  _buildFilterChip('OPEN', 'Chá» tiáº¿p nháº­n'),
+                  _buildFilterChip('OPEN', 'Chờ tiếp nhận'),
                   const SizedBox(width: 8),
-                  _buildFilterChip('RECEIVED', 'ÄĂ£ tiáº¿p nháº­n'),
+                  _buildFilterChip('RECEIVED', 'Đã tiếp nhận'),
                   const SizedBox(width: 8),
-                  _buildFilterChip('IN_PROGRESS', 'Äang sá»­a chá»¯a'),
+                  _buildFilterChip('IN_PROGRESS', 'Đang sửa chữa'),
                   const SizedBox(width: 8),
-                  _buildFilterChip('RESOLVED', 'ÄĂ£ hoĂ n thĂ nh'),
+                  _buildFilterChip('RESOLVED', 'Đã hoàn thành'),
                   const SizedBox(width: 8),
-                  _buildFilterChip('REJECTED', 'Tá»« chá»‘i'),
+                  _buildFilterChip('REJECTED', 'Từ chối'),
                 ],
               ),
             ),
 
-            // â”€â”€â”€ Requests list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ─── Requests list ───────────────────────────
             Expanded(
               child: state.isLoading
                   ? ListView.builder(
                       padding: const EdgeInsets.all(20),
                       itemCount: 4,
-                      itemBuilder: (context, index) => const CardShimmer(height: 100),
+                      itemBuilder: (context, index) =>
+                          const CardShimmer(height: 100),
                     )
                   : state.error != null
-                      ? ErrorState(
-                          message: 'Lá»—i táº£i yĂªu cáº§u: ${state.error}',
-                          onRetry: () => ref.read(adminMaintenanceProvider.notifier).fetchRequests(refresh: true),
-                        )
-                      : state.items.isEmpty
-                          ? const EmptyState(
-                              title: 'KhĂ´ng cĂ³ yĂªu cáº§u sá»­a chá»¯a nĂ o',
-                              subtitle: 'ChÆ°a cĂ³ khĂ¡ch thuĂª nĂ o gá»­i yĂªu cáº§u báº£o trĂ¬',
-                              icon: Icons.build_outlined,
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(20),
-                              itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == state.items.length) {
-                                  return const Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  );
-                                }
-                                final item = state.items[index];
-                                return _buildMaintenanceCard(context, item);
-                              },
+                  ? ErrorState(
+                      message: 'Lỗi tải yêu cầu: ${state.error}',
+                      onRetry: () => ref
+                          .read(adminMaintenanceProvider.notifier)
+                          .fetchRequests(refresh: true),
+                    )
+                  : state.items.isEmpty
+                  ? const EmptyState(
+                      title: 'Không có yêu cầu sửa chữa nào',
+                      subtitle: 'Chưa có khách thuê nào gửi yêu cầu bảo trì',
+                      icon: Icons.build_outlined,
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(20),
+                      itemCount:
+                          state.items.length + (state.isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == state.items.length) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: CircularProgressIndicator(),
                             ),
+                          );
+                        }
+                        final item = state.items[index];
+                        return _buildMaintenanceCard(context, item);
+                      },
+                    ),
             ),
           ],
         ),
@@ -149,8 +161,10 @@ class _AdminMaintenanceManagementScreenState extends ConsumerState<AdminMaintena
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'PhĂ²ng ${item.roomNumber ?? 'â€”'}',
-              style: AppTextStyles.titleMd.copyWith(fontWeight: FontWeight.bold),
+              'Phòng ${item.roomNumber ?? '—'}',
+              style: AppTextStyles.titleMd.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             StatusChip(status: item.status ?? 'OPEN'),
           ],
@@ -160,13 +174,15 @@ class _AdminMaintenanceManagementScreenState extends ConsumerState<AdminMaintena
           children: [
             const SizedBox(height: 8),
             Text(
-              'Sá»± cá»‘: ${item.title}',
+              'Sự cố: ${item.title}',
               style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 4),
             Text(
-              'KhĂ¡ch: ${item.tenantName} Â· ${DateFormatter.format(DateFormatter.tryParse(item.requestDate))}',
-              style: AppTextStyles.bodySm.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              'Khách: ${item.tenantName} · ${DateFormatter.format(DateFormatter.tryParse(item.requestDate))}',
+              style: AppTextStyles.bodySm.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             PriorityChip(priority: item.priority ?? 'MEDIUM'),
