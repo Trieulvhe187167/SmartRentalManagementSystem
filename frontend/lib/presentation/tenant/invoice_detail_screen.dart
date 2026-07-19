@@ -85,7 +85,7 @@ class TenantInvoiceDetailScreen extends ConsumerWidget {
                         style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
                       ),
                       Text(
-                        'Khách thuê: ${invoice.tenantName ?? '—'}',
+                        'Khách thuê: ${invoice.tenantName}',
                         style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
@@ -232,7 +232,7 @@ class TenantInvoiceDetailScreen extends ConsumerWidget {
                   Text('Hướng dẫn thanh toán', style: AppTextStyles.titleMd),
                   const SizedBox(height: 12),
                   AppCard(
-                    backgroundColor: Theme.of(context).colorScheme.tertiaryContainer.withOpacity(0.15),
+                    backgroundColor: Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.15),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

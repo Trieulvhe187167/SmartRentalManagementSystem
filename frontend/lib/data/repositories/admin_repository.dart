@@ -53,16 +53,19 @@ class AdminRepository {
   }
 
   // GET /admin/dashboard/revenue-summary
-  Future<Map<String, double>> revenueSummary() async {
+  Future<List<MonthlyRevenueData>> revenueSummary({required int year}) async {
     try {
-      final response = await _dio.get(ApiConstants.adminRevenueSummary);
-      final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
+      final response = await _dio.get(
+        ApiConstants.adminRevenueSummary,
+        queryParameters: {'year': year},
+      );
+      final apiResponse = ApiResponse<List<dynamic>>.fromJson(
         response.data as Map<String, dynamic>,
-        (json) => json as Map<String, dynamic>,
+        (json) => json as List<dynamic>,
       );
-      return apiResponse.data!.map(
-        (key, value) => MapEntry(key, (value as num).toDouble()),
-      );
+      return apiResponse.data!
+          .map((json) => MonthlyRevenueData.fromJson(json as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       throw e.error ?? e;
     }
@@ -727,11 +730,32 @@ class AdminRepository {
     }
   }
 
+  // POST /admin/invoices/{id}/items/adjustment
+  Future<Invoice> addInvoiceAdjustment(
+    int id,
+    InvoiceAdjustmentRequest req,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.adminInvoices}/$id/items/adjustment',
+        data: req.toJson(),
+      );
+      final apiResponse = ApiResponse<Invoice>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => Invoice.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
   // PUT /admin/invoices/{id}/cancel
-  Future<Invoice> cancelInvoice(int id) async {
+  Future<Invoice> cancelInvoice(int id, String reason) async {
     try {
       final response = await _dio.put(
         '${ApiConstants.adminInvoices}/$id/cancel',
+        data: InvoiceCancelRequest(reason: reason).toJson(),
       );
       final apiResponse = ApiResponse<Invoice>.fromJson(
         response.data as Map<String, dynamic>,
@@ -812,11 +836,21 @@ class AdminRepository {
   // ─── Debts ──────────────────────────────────────────────────────────────────
 
   // GET /admin/debts
-  Future<PageResponse<Invoice>> debts({int page = 0, int size = 20}) async {
+  Future<PageResponse<Invoice>> debts({
+    int page = 0,
+    int size = 20,
+    int? month,
+    int? year,
+  }) async {
     try {
       final response = await _dio.get(
         ApiConstants.adminDebts,
-        queryParameters: {'page': page, 'size': size},
+        queryParameters: {
+          'page': page,
+          'size': size,
+          if (month != null) 'month': month,
+          if (year != null) 'year': year,
+        },
       );
       final apiResponse = ApiResponse<Map<String, dynamic>>.fromJson(
         response.data as Map<String, dynamic>,

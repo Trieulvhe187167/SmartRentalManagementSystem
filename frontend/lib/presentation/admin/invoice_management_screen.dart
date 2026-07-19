@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +9,6 @@ import '../../core/constants/app_text_styles.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../data/models/invoice_models.dart';
-import '../../data/models/payment_models.dart';
 import '../../data/repositories/admin_repository.dart';
 import '../shared/widgets/app_card.dart';
 import '../shared/widgets/status_chip.dart';
@@ -29,6 +30,7 @@ class AdminInvoiceManagementScreen extends ConsumerStatefulWidget {
 
 class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManagementScreen> {
   final _scrollController = ScrollController();
+  final _filterScrollController = ScrollController();
   String _selectedStatus = 'ALL';
   int? _selectedMonth;
   int? _selectedYear;
@@ -42,6 +44,7 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
   @override
   void dispose() {
     _scrollController.dispose();
+    _filterScrollController.dispose();
     super.dispose();
   }
 
@@ -91,7 +94,7 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          value: _selectedMonth,
+                          initialValue: _selectedMonth,
                           decoration: const InputDecoration(labelText: 'Tháng'),
                           items: [
                             const DropdownMenuItem(value: null, child: Text('Tất cả')),
@@ -108,7 +111,7 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<int>(
-                          value: _selectedYear,
+                          initialValue: _selectedYear,
                           decoration: const InputDecoration(labelText: 'Năm'),
                           items: [
                             const DropdownMenuItem(value: null, child: Text('Tất cả')),
@@ -127,21 +130,37 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 38,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        _buildFilterChip('ALL', 'Tất cả'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('DRAFT', 'Nháp'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('ISSUED', 'Phát hành'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('PAID', 'Đã thu'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('OVERDUE', 'Quá hạn'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('CANCELLED', 'Hủy'),
-                      ],
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context).copyWith(
+                        dragDevices: const {
+                          PointerDeviceKind.touch,
+                          PointerDeviceKind.mouse,
+                          PointerDeviceKind.trackpad,
+                          PointerDeviceKind.stylus,
+                        },
+                      ),
+                      child: ListView(
+                        controller: _filterScrollController,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          _buildFilterChip('ALL', 'Tất cả'),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('DRAFT', 'Nháp'),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('ISSUED', 'Phát hành'),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('PARTIALLY_PAID', 'Thanh toán một phần'),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('DEBT', 'Công nợ'),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('PAID', 'Đã thu'),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('OVERDUE', 'Quá hạn'),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('CANCELLED', 'Hủy'),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -302,7 +321,7 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: month,
+                      initialValue: month,
                       decoration: const InputDecoration(labelText: 'Tháng'),
                       items: List.generate(12, (i) {
                         return DropdownMenuItem(value: i + 1, child: Text('Tháng ${i + 1}'));
@@ -315,7 +334,7 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<int>(
-                      value: year,
+                      initialValue: year,
                       decoration: const InputDecoration(labelText: 'Năm'),
                       items: [
                         DropdownMenuItem(value: DateTime.now().year - 1, child: Text('${DateTime.now().year - 1}')),
@@ -404,89 +423,328 @@ class _InvoiceDetailView extends ConsumerStatefulWidget {
 class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
   bool _actionLoading = false;
 
-  Future<void> _recordPayment(double remaining) async {
-    final amtCtrl = TextEditingController(text: remaining.toStringAsFixed(0));
-    final noteCtrl = TextEditingController(text: 'Đã thu tiền chuyển khoản');
-    String method = 'BANK_TRANSFER';
+  void _refreshData() {
+    ref.invalidate(adminInvoiceDetailProvider(widget.invoiceId));
+    widget.onRefreshList();
+  }
 
-    final confirm = await showDialog<bool>(
+  Future<void> _recordPayment(Invoice invoice) async {
+    final result = await context.push<bool>(
+      AppRoutes.adminPaymentRecording,
+      extra: {
+        'invoiceId': widget.invoiceId,
+        'remainingAmount': invoice.remainingAmount ?? 0.0,
+        'tenantName': invoice.tenantName,
+        'roomNumber': invoice.roomNumber,
+        'billingMonth': invoice.billingMonth,
+        'billingYear': invoice.billingYear,
+      },
+    );
+    if (result == true && mounted) {
+      _refreshData();
+    }
+  }
+
+  Future<void> _issueInvoice(Invoice invoice) async {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final currentDueDate = DateTime.tryParse(invoice.dueDate ?? '');
+    var dueDate = currentDueDate == null || currentDueDate.isBefore(today)
+        ? today.add(const Duration(days: 7))
+        : DateUtils.dateOnly(currentDueDate);
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          title: const Text('Thu tiền hóa đơn'),
-          content: Column(
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Phát hành hóa đơn'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Chọn hạn thanh toán trước khi phát hành.'),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: dueDate,
+                        firstDate: today,
+                        lastDate: today.add(
+                          const Duration(days: 365),
+                        ),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => dueDate = picked);
+                      }
+                    },
+                    icon: const Icon(Icons.calendar_today_outlined),
+                    label: Text(DateFormatter.format(dueDate)),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('Đóng'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: const Text('Phát hành'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _actionLoading = true);
+    final error = await ref.read(adminInvoicesProvider.notifier).issueInvoice(
+          widget.invoiceId,
+          dueDate.toIso8601String().substring(0, 10),
+        );
+    if (!mounted) return;
+    setState(() => _actionLoading = false);
+    if (error != null) {
+      _showError(error);
+      return;
+    }
+    _refreshData();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã phát hành hóa đơn'),
+        backgroundColor: AppColors.success,
+      ),
+    );
+  }
+
+  Future<void> _addAdjustment() async {
+    final formKey = GlobalKey<FormState>();
+    final descriptionController = TextEditingController();
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Thêm khoản điều chỉnh'),
+        content: Form(
+          key: formKey,
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextFormField(
-                controller: amtCtrl,
-                decoration: const InputDecoration(labelText: 'Số tiền thu (VND)'),
-                keyboardType: TextInputType.number,
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Nội dung điều chỉnh',
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Vui lòng nhập nội dung'
+                    : null,
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: method,
-                decoration: const InputDecoration(labelText: 'Phương thức'),
-                items: const [
-                  DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Chuyển khoản')),
-                  DropdownMenuItem(value: 'CASH', child: Text('Tiền mặt')),
-                ],
-                onChanged: (v) {
-                  if (v != null) method = v;
+              TextFormField(
+                controller: amountController,
+                decoration: const InputDecoration(
+                  labelText: 'Số tiền (VND)',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                  signed: true,
+                ),
+                validator: (value) {
+                  final amount = double.tryParse(value?.trim() ?? '');
+                  if (amount == null || amount == 0) {
+                    return 'Số tiền phải khác 0';
+                  }
+                  return null;
                 },
               ),
               const SizedBox(height: 12),
               TextFormField(
-                controller: noteCtrl,
+                controller: noteController,
                 decoration: const InputDecoration(labelText: 'Ghi chú'),
+                maxLines: 2,
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Hủy'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Xác nhận thu'),
-            ),
-          ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: const Text('Thêm'),
+          ),
+        ],
+      ),
     );
-
-    if (confirm == true) {
+    if (confirmed == true && mounted) {
       setState(() => _actionLoading = true);
       try {
-        final amount = double.tryParse(amtCtrl.text.trim()) ?? 0.0;
-        final dateStr = DateTime.now().toIso8601String().substring(0, 10);
-        await AdminRepository.instance.recordPayment(
+        await AdminRepository.instance.addInvoiceAdjustment(
           widget.invoiceId,
-          PaymentCreateRequest(
-            amount: amount,
-            method: method,
-            paymentDate: dateStr,
-            notes: noteCtrl.text.trim(),
+          InvoiceAdjustmentRequest(
+            description: descriptionController.text.trim(),
+            amount: double.parse(amountController.text.trim()),
+            note: noteController.text.trim(),
           ),
         );
-        widget.onRefreshList();
         if (mounted) {
-          Navigator.pop(context);
+          _refreshData();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đã cập nhật thanh toán hóa đơn'), backgroundColor: AppColors.success),
+            const SnackBar(
+              content: Text('Đã thêm khoản điều chỉnh'),
+              backgroundColor: AppColors.success,
+            ),
           );
         }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
-          );
-        }
+      } catch (error) {
+        if (mounted) _showError(error.toString());
       } finally {
         if (mounted) setState(() => _actionLoading = false);
       }
     }
+    descriptionController.dispose();
+    amountController.dispose();
+    noteController.dispose();
+  }
+
+  Future<void> _cancelInvoice() async {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hủy hóa đơn'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: reasonController,
+            decoration: const InputDecoration(
+              labelText: 'Lý do hủy',
+              hintText: 'Nhập lý do để lưu lịch sử đối soát',
+            ),
+            maxLines: 3,
+            maxLength: 500,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Vui lòng nhập lý do hủy'
+                : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Đóng'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.danger,
+            ),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: const Text('Xác nhận hủy'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() => _actionLoading = true);
+      final error = await ref.read(adminInvoicesProvider.notifier).cancelInvoice(
+            widget.invoiceId,
+            reasonController.text.trim(),
+          );
+      if (mounted) {
+        setState(() => _actionLoading = false);
+        if (error != null) {
+          _showError(error);
+        } else {
+          _refreshData();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã hủy hóa đơn'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      }
+    }
+    reasonController.dispose();
+  }
+
+  Future<void> _cancelPayment(int paymentId) async {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Hủy giao dịch thanh toán'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: reasonController,
+            decoration: const InputDecoration(labelText: 'Lý do hủy'),
+            maxLines: 3,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Vui lòng nhập lý do hủy'
+                : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Đóng'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: const Text('Hủy giao dịch'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() => _actionLoading = true);
+      try {
+        await AdminRepository.instance.cancelPayment(
+          paymentId,
+          reasonController.text.trim(),
+        );
+        if (mounted) {
+          _refreshData();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã hủy giao dịch và cập nhật lại công nợ'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      } catch (error) {
+        if (mounted) _showError(error.toString());
+      } finally {
+        if (mounted) setState(() => _actionLoading = false);
+      }
+    }
+    reasonController.dispose();
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
+    );
   }
 
   @override
@@ -496,11 +754,23 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
     return detailAsync.when(
       data: (detail) {
         final invoice = detail.invoice!;
-        final items = detail.items ?? [];
+        final items = detail.items;
+        final payments = detail.payments;
         final remaining = invoice.remainingAmount ?? 0.0;
 
         final isDraft = invoice.status?.toUpperCase() == 'DRAFT';
-        final isIssued = invoice.status?.toUpperCase() == 'ISSUED' || invoice.status?.toUpperCase() == 'OVERDUE';
+        final isIssued = const {
+          'ISSUED',
+          'PARTIALLY_PAID',
+          'OVERDUE',
+        }.contains(invoice.status?.toUpperCase());
+        final hasConfirmedPayments = payments.any(
+          (payment) => payment.status?.toUpperCase() == 'CONFIRMED',
+        );
+        final canCancelInvoice =
+            invoice.status?.toUpperCase() != 'CANCELLED' &&
+            invoice.status?.toUpperCase() != 'PAID' &&
+            !hasConfirmedPayments;
 
         return DraggableScrollableSheet(
           initialChildSize: 0.8,
@@ -553,7 +823,7 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
                         children: [
                           Expanded(
                             child: Text(
-                              '${item.description} ${item.quantity != null ? '(x${item.quantity})' : ''}',
+                              '${item.description} ${item.quantity != null ? '(x${item.quantity}${item.unit == null ? '' : ' ${item.unit}'})' : ''}',
                               style: AppTextStyles.bodyMd,
                             ),
                           ),
@@ -562,61 +832,110 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
                       ),
                     );
                   }),
+                  if (payments.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    Text('Lịch sử thanh toán', style: AppTextStyles.titleSm),
+                    const SizedBox(height: 12),
+                    AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      child: Column(
+                        children: payments.map((payment) {
+                          final isConfirmed =
+                              payment.status?.toUpperCase() == 'CONFIRMED';
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: (isConfirmed
+                                      ? AppColors.success
+                                      : AppColors.outline)
+                                  .withValues(alpha: 0.12),
+                              child: Icon(
+                                isConfirmed
+                                    ? Icons.check_circle_outline
+                                    : Icons.cancel_outlined,
+                                color: isConfirmed
+                                    ? AppColors.success
+                                    : AppColors.outline,
+                              ),
+                            ),
+                            title: Text(
+                              CurrencyFormatter.format(payment.amount),
+                              style: AppTextStyles.titleSm,
+                            ),
+                            subtitle: Text(
+                              '${payment.methodLabel} · ${DateFormatter.format(DateFormatter.tryParse(payment.paymentDate))}',
+                              style: AppTextStyles.bodySm,
+                            ),
+                            trailing: isConfirmed && payment.id != null
+                                ? IconButton(
+                                    tooltip: 'Hủy giao dịch sai',
+                                    onPressed: _actionLoading
+                                        ? null
+                                        : () => _cancelPayment(payment.id!),
+                                    icon: const Icon(
+                                      Icons.cancel_outlined,
+                                      color: AppColors.danger,
+                                    ),
+                                  )
+                                : StatusChip(
+                                    status: payment.status ?? 'CANCELLED',
+                                    fontSize: 10,
+                                  ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 32),
 
                   // Actions row
                   if (_actionLoading)
                     const Center(child: CircularProgressIndicator())
                   else ...[
-                    if (isDraft)
+                    if (isDraft) ...[
+                      OutlinedButton.icon(
+                        onPressed: _addAdjustment,
+                        icon: const Icon(Icons.playlist_add_outlined),
+                        label: const Text('Thêm khoản điều chỉnh'),
+                      ),
+                      const SizedBox(height: 12),
                       ElevatedButton.icon(
-                        onPressed: () async {
-                          setState(() => _actionLoading = true);
-                          final nowStr = DateTime.now().toIso8601String().substring(0, 10);
-                          final err = await ref
-                              .read(adminInvoicesProvider.notifier)
-                              .issueInvoice(widget.invoiceId, nowStr);
-                          setState(() => _actionLoading = false);
-                          if (mounted) {
-                            if (err != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: AppColors.error));
-                            } else {
-                              Navigator.pop(context);
-                              widget.onRefreshList();
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã phát hành hoá đơn'), backgroundColor: AppColors.success));
-                            }
-                          }
-                        },
+                        onPressed: () => _issueInvoice(invoice),
                         icon: const Icon(Icons.send_outlined),
                         label: const Text('Phát hành hóa đơn'),
                       ),
+                    ],
                     if (isIssued && remaining > 0) ...[
                       ElevatedButton.icon(
-                        onPressed: () => _recordPayment(remaining),
+                        onPressed: () => _recordPayment(invoice),
                         icon: const Icon(Icons.payments_outlined),
-                        label: const Text('Xác nhận thu tiền mặt/chuyển khoản'),
+                        label: const Text('Ghi nhận thanh toán'),
                       ),
+                    ],
+                    if (canCancelInvoice) ...[
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
-                        onPressed: () async {
-                          setState(() => _actionLoading = true);
-                          final err = await ref
-                              .read(adminInvoicesProvider.notifier)
-                              .cancelInvoice(widget.invoiceId);
-                          setState(() => _actionLoading = false);
-                          if (mounted) {
-                            if (err != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err), backgroundColor: AppColors.error));
-                            } else {
-                              Navigator.pop(context);
-                              widget.onRefreshList();
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã hủy hóa đơn'), backgroundColor: AppColors.success));
-                            }
-                          }
-                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                          side: const BorderSide(color: AppColors.danger),
+                        ),
+                        onPressed: _cancelInvoice,
                         icon: const Icon(Icons.cancel_outlined),
                         label: const Text('Hủy hóa đơn này'),
+                      ),
+                    ],
+                    if (hasConfirmedPayments &&
+                        invoice.status?.toUpperCase() != 'PAID') ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Muốn hủy hóa đơn, hãy hủy các giao dịch thanh toán đã xác nhận trước.',
+                        style: AppTextStyles.bodySm.copyWith(
+                          color: AppColors.warning,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ],
