@@ -92,6 +92,7 @@ class UserResponse {
   final String? role;
   final String? idNumber;
   final String? address;
+  final String? avatarData;
   final bool? active;
 
   const UserResponse({
@@ -103,6 +104,7 @@ class UserResponse {
     this.role,
     this.idNumber,
     this.address,
+    this.avatarData,
     this.active,
   });
 
@@ -116,6 +118,7 @@ class UserResponse {
       role: _normalizeRole(json['role'] as String?),
       idNumber: json['idNumber'] as String?,
       address: json['address'] as String?,
+      avatarData: json['avatarData'] as String?,
       active: json['active'] as bool?,
     );
   }
@@ -129,6 +132,7 @@ class UserResponse {
     'role': role,
     'idNumber': idNumber,
     'address': address,
+    'avatarData': avatarData,
     'active': active,
   };
 
@@ -140,6 +144,49 @@ class UserResponse {
       return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
     }
     return name.isNotEmpty ? name[0].toUpperCase() : 'U';
+  }
+}
+
+class TenantProfileUpdateRequest {
+  final String? phone;
+  final String permanentAddress;
+  final String? avatarData;
+
+  const TenantProfileUpdateRequest({
+    this.phone,
+    required this.permanentAddress,
+    this.avatarData,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'phone': phone,
+    'permanentAddress': permanentAddress,
+    if (avatarData != null) 'avatarData': avatarData,
+  };
+}
+
+class EmailChangeStartResponse {
+  final bool requiresVerification;
+  final String email;
+  final String? message;
+  final UserResponse? user;
+
+  const EmailChangeStartResponse({
+    required this.requiresVerification,
+    required this.email,
+    this.message,
+    this.user,
+  });
+
+  factory EmailChangeStartResponse.fromJson(Map<String, dynamic> json) {
+    return EmailChangeStartResponse(
+      requiresVerification: json['requiresVerification'] as bool? ?? false,
+      email: json['email'] as String? ?? '',
+      message: json['message'] as String?,
+      user: json['user'] is Map<String, dynamic>
+          ? UserResponse.fromJson(json['user'] as Map<String, dynamic>)
+          : null,
+    );
   }
 }
 

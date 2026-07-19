@@ -500,6 +500,62 @@ class AdminRepository {
     }
   }
 
+  Future<List<ContractOccupant>> contractOccupants(int contractId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.adminContracts}/$contractId/occupants',
+      );
+      final apiResponse = ApiResponse<List<ContractOccupant>>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => (json as List<dynamic>)
+            .map(
+              (item) => ContractOccupant.fromJson(item as Map<String, dynamic>),
+            )
+            .toList(),
+      );
+      return apiResponse.data ?? const [];
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  Future<ContractOccupant> createContractOccupant(
+    int contractId,
+    ContractOccupantCreateRequest request,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.adminContracts}/$contractId/occupants/new',
+        data: request.toJson(),
+      );
+      final apiResponse = ApiResponse<ContractOccupant>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => ContractOccupant.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  Future<ContractOccupant> moveOutContractOccupant({
+    required int contractId,
+    required int occupantId,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.adminContracts}/$contractId/occupants/$occupantId/move-out',
+      );
+      final apiResponse = ApiResponse<ContractOccupant>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => ContractOccupant.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
   // PUT /admin/contracts/{id}/terminate
   Future<RentalContract> terminateContract(
     int id,

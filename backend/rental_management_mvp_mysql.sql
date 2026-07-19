@@ -70,6 +70,7 @@ DROP TABLE IF EXISTS tenant_profiles;
 DROP TABLE IF EXISTS rooms;
 DROP TABLE IF EXISTS floors;
 DROP TABLE IF EXISTS buildings;
+DROP TABLE IF EXISTS email_change_verifications;
 DROP TABLE IF EXISTS password_reset_tokens;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS roles;
@@ -98,6 +99,7 @@ CREATE TABLE users (
     password_hash           VARCHAR(255) NOT NULL,
     phone                   VARCHAR(20) NULL,
     email                   VARCHAR(150) NULL,
+    avatar_data             LONGTEXT NULL,
     status                  VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     must_change_password    BOOLEAN NOT NULL DEFAULT TRUE,
     last_login_at           DATETIME(6) NULL,
@@ -140,6 +142,26 @@ CREATE INDEX idx_password_reset_tokens_user
 
 CREATE INDEX idx_password_reset_tokens_expiry
     ON password_reset_tokens(expires_at);
+
+CREATE TABLE email_change_verifications (
+    id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id     BIGINT UNSIGNED NOT NULL,
+    new_email   VARCHAR(150) NOT NULL,
+    code_hash   CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    expires_at  DATETIME(6) NOT NULL,
+    attempts    INT NOT NULL DEFAULT 0,
+    used_at     DATETIME(6) NULL,
+    created_at  DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    CONSTRAINT fk_email_change_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_email_change_user
+    ON email_change_verifications(user_id, used_at);
+
+CREATE INDEX idx_email_change_expiry
+    ON email_change_verifications(expires_at);
 
 -- ============================================================
 -- 2. Building, floor and room
@@ -311,7 +333,10 @@ CREATE TABLE rental_contracts (
     deposit_amount          DECIMAL(18,2) NOT NULL DEFAULT 0,
     monthly_due_day         TINYINT UNSIGNED NOT NULL DEFAULT 5,
     terms                   TEXT NULL,
-    status                  VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    status                  VARCHAR(20) NOT NULL DEFAULT 'PENDING_CONFIRMATION',
+    tenant_confirmed_at     DATETIME(6) NULL,
+    tenant_rejected_at      DATETIME(6) NULL,
+    tenant_rejection_reason VARCHAR(500) NULL,
     activated_at            DATETIME(6) NULL,
     ended_at                DATETIME(6) NULL,
     termination_reason      VARCHAR(500) NULL,
@@ -328,9 +353,16 @@ CREATE TABLE rental_contracts (
             ELSE NULL
         END
     ) STORED,
+    active_tenant_id        BIGINT UNSIGNED GENERATED ALWAYS AS (
+        CASE
+            WHEN status = 'ACTIVE' AND is_deleted = FALSE THEN primary_tenant_id
+            ELSE NULL
+        END
+    ) STORED,
     PRIMARY KEY (id),
     CONSTRAINT uq_rental_contracts_code UNIQUE (contract_code),
     CONSTRAINT uq_rental_contracts_active_room UNIQUE (active_room_id),
+    CONSTRAINT uq_rental_contracts_active_tenant UNIQUE (active_tenant_id),
     CONSTRAINT fk_rental_contracts_room FOREIGN KEY (room_id) REFERENCES rooms(id),
     CONSTRAINT fk_rental_contracts_tenant FOREIGN KEY (primary_tenant_id) REFERENCES tenant_profiles(id),
     CONSTRAINT fk_rental_contracts_previous FOREIGN KEY (renewed_from_contract_id)
@@ -342,7 +374,7 @@ CREATE TABLE rental_contracts (
     CONSTRAINT chk_rental_contracts_deposit CHECK (deposit_amount >= 0),
     CONSTRAINT chk_rental_contracts_due_day CHECK (monthly_due_day BETWEEN 1 AND 31),
     CONSTRAINT chk_rental_contracts_status CHECK (
-        status IN ('DRAFT', 'ACTIVE', 'EXPIRED', 'TERMINATED', 'CANCELLED')
+        status IN ('DRAFT', 'PENDING_CONFIRMATION', 'ACTIVE', 'REJECTED', 'EXPIRED', 'TERMINATED', 'CANCELLED')
     )
 ) ENGINE=InnoDB;
 

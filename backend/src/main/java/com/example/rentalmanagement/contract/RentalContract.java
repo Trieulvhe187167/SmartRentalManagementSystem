@@ -85,11 +85,19 @@ public class RentalContract extends AuditableEntity {
     public String terms;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    public ContractStatus status = ContractStatus.DRAFT;
+    public ContractStatus status = ContractStatus.PENDING_CONFIRMATION;
+    public LocalDateTime tenantConfirmedAt;
+    public LocalDateTime tenantRejectedAt;
+    @Column(length = 500)
+    public String tenantRejectionReason;
     public LocalDateTime activatedAt;
     @Column(name = "ended_at")
     public LocalDateTime endedAt;
     public String terminationReason;
+    @Transient
+    public Long currentOccupantCount;
     @Column(insertable = false, updatable = false)
     public Long activeRoomId;
+    @Column(insertable = false, updatable = false)
+    public Long activeTenantId;
 }

@@ -99,6 +99,18 @@ public class ContractManagementService {
         }
         Room room = rooms.findById(request.roomId()).orElseThrow(() -> new NotFoundException("Room not found", "ROOM_NOT_FOUND"));
         TenantProfile tenant = tenants.findById(request.primaryTenantId()).orElseThrow(() -> new NotFoundException("Tenant profile not found", "TENANT_NOT_FOUND"));
+        requireTenantAvailableForNewContract(tenant.id, null);
+        if (room.status != RoomStatus.AVAILABLE) {
+            throw new BusinessException("Room is not available for a new contract", "ROOM_NOT_AVAILABLE", HttpStatus.CONFLICT);
+        }
+        if (contracts.existsByRoomIdAndStatusAndIsDeletedFalse(room.id, ContractStatus.ACTIVE)
+                || contracts.existsByRoomIdAndStatusAndIsDeletedFalse(room.id, ContractStatus.PENDING_CONFIRMATION)) {
+            throw new BusinessException(
+                    "Room already has an active contract or one awaiting confirmation",
+                    "CONTRACT_ROOM_UNAVAILABLE",
+                    HttpStatus.CONFLICT
+            );
+        }
         RentalContract c = new RentalContract();
         c.contractCode = request.contractCode();
         c.room = room;
@@ -109,21 +121,22 @@ public class ContractManagementService {
         c.depositAmount = request.depositAmount();
         c.monthlyDueDay = request.monthlyDueDay();
         c.terms = request.terms();
-        c.status = ContractStatus.DRAFT;
+        c.status = ContractStatus.PENDING_CONFIRMATION;
         return contracts.save(c);
     }
 
     @Transactional
     public RentalContract updateDraftContract(Long id, ContractCreateRequest request) {
         RentalContract c = contract(id);
-        if (c.status != ContractStatus.DRAFT) {
-            throw new BusinessException("Only DRAFT contract can be updated", "CONTRACT_NOT_EDITABLE");
+        if (c.status != ContractStatus.DRAFT && c.status != ContractStatus.PENDING_CONFIRMATION) {
+            throw new BusinessException("Only a contract awaiting confirmation can be updated", "CONTRACT_NOT_EDITABLE");
         }
         if (!request.endDate().isAfter(request.startDate())) {
             throw new BusinessException("Contract end date must be after start date", "CONTRACT_INVALID_DATE", HttpStatus.BAD_REQUEST);
         }
         Room room = rooms.findById(request.roomId()).orElseThrow(() -> new NotFoundException("Room not found", "ROOM_NOT_FOUND"));
         TenantProfile tenant = tenants.findById(request.primaryTenantId()).orElseThrow(() -> new NotFoundException("Tenant profile not found", "TENANT_NOT_FOUND"));
+        requireTenantAvailableForNewContract(tenant.id, c.id);
         c.contractCode = request.contractCode();
         c.room = room;
         c.primaryTenant = tenant;
@@ -137,18 +150,18 @@ public class ContractManagementService {
     }
 
     public Page<RentalContract> search(ContractStatus status, Long roomId, Long tenantId, Pageable pageable) {
-        return contracts.search(status, roomId, tenantId, pageable);
+        return contracts.search(status, roomId, tenantId, pageable).map(this::withOccupancy);
     }
 
     public RentalContract contract(Long id) {
-        return contracts.findById(id).orElseThrow(() -> new NotFoundException("Contract not found", "CONTRACT_NOT_FOUND"));
+        return withOccupancy(contracts.findById(id).orElseThrow(() -> new NotFoundException("Contract not found", "CONTRACT_NOT_FOUND")));
     }
 
     @Transactional
     public ContractOccupant addOccupant(Long contractId, ContractOccupantRequest request) {
         RentalContract contract = contract(contractId);
         Occupant occupant = occupants.findById(request.occupantId()).orElseThrow(() -> new NotFoundException("Occupant not found", "OCCUPANT_NOT_FOUND"));
-        long residents = 1 + contractOccupants.countByContractIdAndMoveOutDateIsNullAndIsDeletedFalse(contractId);
+        long residents = 1 + contractOccupants.countActiveOnDate(contractId, request.moveInDate());
         if (residents + 1 > contract.room.maxOccupants) {
             throw new BusinessException("Room resident count exceeds capacity", "CAPACITY_EXCEEDED");
         }
@@ -161,10 +174,33 @@ public class ContractManagementService {
     }
 
     @Transactional
+    public ContractOccupant createAndAddOccupant(Long contractId, ContractOccupantCreateRequest request) {
+        Occupant occupant = new Occupant();
+        occupant.fullName = request.fullName().trim();
+        occupant.dateOfBirth = request.dateOfBirth();
+        occupant.phone = request.phone();
+        occupant.identityType = request.identityType();
+        occupant.identityNumber = request.identityNumber();
+        occupant.permanentAddress = request.permanentAddress();
+        occupant.status = RecordStatus.ACTIVE;
+        Occupant saved = occupants.save(occupant);
+        return addOccupant(
+                contractId,
+                new ContractOccupantRequest(saved.id, request.relationshipToPrimary(), request.moveInDate())
+        );
+    }
+
+    public List<ContractOccupant> contractOccupantList(Long contractId) {
+        contract(contractId);
+        return contractOccupants.findByContractIdAndIsDeletedFalseOrderByMoveInDateAsc(contractId);
+    }
+
+    @Transactional
     public ContractOccupant removeOrMoveOutOccupant(Long contractId, Long occupantId) {
         ContractOccupant co = contractOccupants.findByContractIdAndOccupantIdAndIsDeletedFalse(contractId, occupantId)
                 .orElseThrow(() -> new NotFoundException("Contract occupant not found", "CONTRACT_OCCUPANT_NOT_FOUND"));
-        if (co.contract.status == ContractStatus.DRAFT) {
+        if (co.contract.status == ContractStatus.DRAFT
+                || co.contract.status == ContractStatus.PENDING_CONFIRMATION) {
             co.isDeleted = true;
             co.deletedAt = LocalDateTime.now();
         } else {
@@ -184,15 +220,14 @@ public class ContractManagementService {
     @Transactional
     public RentalContract activate(Long id) {
         RentalContract contract = contract(id);
-        if (contract.room.status != RoomStatus.AVAILABLE) {
-            throw new BusinessException("Room is not available for rent", "ROOM_NOT_AVAILABLE");
+        if (contract.status == ContractStatus.ACTIVE) {
+            return contract;
         }
-        if (contracts.existsByRoomIdAndStatusAndIsDeletedFalse(contract.room.id, ContractStatus.ACTIVE)) {
-            throw new BusinessException("Room already has active contract", "CONTRACT_ACTIVE_EXISTS");
-        }
-        contract.status = ContractStatus.ACTIVE;
-        contract.activatedAt = LocalDateTime.now();
-        return contract;
+        throw new BusinessException(
+                "Tenant confirmation is required before contract activation",
+                "TENANT_CONFIRMATION_REQUIRED",
+                HttpStatus.CONFLICT
+        );
     }
 
     @Transactional
@@ -226,7 +261,7 @@ public class ContractManagementService {
         renewed.depositAmount = request.depositAmount();
         renewed.monthlyDueDay = request.monthlyDueDay();
         renewed.terms = request.terms();
-        renewed.status = ContractStatus.DRAFT;
+        renewed.status = ContractStatus.PENDING_CONFIRMATION;
         return contracts.save(renewed);
     }
 
@@ -405,15 +440,123 @@ public class ContractManagementService {
     }
 
     public Page<RentalContract> tenantContracts(Long tenantId, Pageable pageable) {
-        return contracts.findByPrimaryTenantIdAndIsDeletedFalse(tenantId, pageable);
+        return contracts.findByPrimaryTenantIdAndIsDeletedFalse(tenantId, pageable).map(this::withOccupancy);
     }
 
     public RentalContract tenantCurrentContract(Long userId) {
-        return contracts.findFirstByPrimaryTenantUserIdAndStatusAndIsDeletedFalse(userId, ContractStatus.ACTIVE)
-                .orElseThrow(() -> new NotFoundException("Current contract not found", "CONTRACT_NOT_FOUND"));
+        return contracts.findFirstByPrimaryTenantUserIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        userId,
+                        ContractStatus.PENDING_CONFIRMATION
+                )
+                .or(() -> contracts.findFirstByPrimaryTenantUserIdAndStatusAndIsDeletedFalseOrderByCreatedAtDesc(
+                        userId,
+                        ContractStatus.ACTIVE
+                ))
+                .map(this::withOccupancy)
+                .orElse(null);
+    }
+
+    @Transactional
+    public RentalContract confirmByTenant(Long userId, Long contractId) {
+        RentalContract contract = tenantContract(userId, contractId);
+        requirePendingConfirmation(contract);
+        if (contracts.existsByPrimaryTenantIdAndStatusAndIsDeletedFalse(
+                contract.primaryTenant.id,
+                ContractStatus.ACTIVE
+        )) {
+            throw new BusinessException(
+                    "Khách thuê đã có một hợp đồng đang hiệu lực",
+                    "TENANT_ACTIVE_CONTRACT_EXISTS",
+                    HttpStatus.CONFLICT
+            );
+        }
+        if (contract.room.status != RoomStatus.AVAILABLE) {
+            throw new BusinessException("Room is no longer available", "ROOM_NOT_AVAILABLE", HttpStatus.CONFLICT);
+        }
+        if (contracts.existsByRoomIdAndStatusAndIsDeletedFalse(contract.room.id, ContractStatus.ACTIVE)) {
+            throw new BusinessException("Room already has an active contract", "CONTRACT_ACTIVE_EXISTS", HttpStatus.CONFLICT);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        contract.status = ContractStatus.ACTIVE;
+        contract.tenantConfirmedAt = now;
+        contract.activatedAt = now;
+        contract.room.status = RoomStatus.OCCUPIED;
+        return contract;
+    }
+
+    private void requireTenantAvailableForNewContract(Long tenantId, Long excludedContractId) {
+        boolean hasActiveContract;
+        boolean hasPendingContract;
+        if (excludedContractId == null) {
+            hasActiveContract = contracts.existsByPrimaryTenantIdAndStatusAndIsDeletedFalse(
+                    tenantId,
+                    ContractStatus.ACTIVE
+            );
+            hasPendingContract = contracts.existsByPrimaryTenantIdAndStatusAndIsDeletedFalse(
+                    tenantId,
+                    ContractStatus.PENDING_CONFIRMATION
+            );
+        } else {
+            hasActiveContract = contracts.existsByPrimaryTenantIdAndStatusAndIsDeletedFalseAndIdNot(
+                    tenantId,
+                    ContractStatus.ACTIVE,
+                    excludedContractId
+            );
+            hasPendingContract = contracts.existsByPrimaryTenantIdAndStatusAndIsDeletedFalseAndIdNot(
+                    tenantId,
+                    ContractStatus.PENDING_CONFIRMATION,
+                    excludedContractId
+            );
+        }
+
+        if (hasActiveContract) {
+            throw new BusinessException(
+                    "Khách thuê đã có một hợp đồng đang hiệu lực",
+                    "TENANT_ACTIVE_CONTRACT_EXISTS",
+                    HttpStatus.CONFLICT
+            );
+        }
+        if (hasPendingContract) {
+            throw new BusinessException(
+                    "Khách thuê đã có một hợp đồng đang chờ xác nhận",
+                    "TENANT_PENDING_CONTRACT_EXISTS",
+                    HttpStatus.CONFLICT
+            );
+        }
+    }
+
+    @Transactional
+    public RentalContract rejectByTenant(Long userId, Long contractId, ContractRejectionRequest request) {
+        RentalContract contract = tenantContract(userId, contractId);
+        requirePendingConfirmation(contract);
+        contract.status = ContractStatus.REJECTED;
+        contract.tenantRejectedAt = LocalDateTime.now();
+        contract.tenantRejectionReason = request.reason().trim();
+        return contract;
+    }
+
+    private RentalContract tenantContract(Long userId, Long contractId) {
+        return contracts.findByIdAndPrimaryTenantUserIdAndIsDeletedFalse(contractId, userId)
+                .orElseThrow(() -> new NotFoundException("Contract not found", "CONTRACT_NOT_FOUND"));
+    }
+
+    private void requirePendingConfirmation(RentalContract contract) {
+        if (contract.status != ContractStatus.PENDING_CONFIRMATION) {
+            throw new BusinessException(
+                    "Contract is not awaiting tenant confirmation",
+                    "CONTRACT_NOT_PENDING_CONFIRMATION",
+                    HttpStatus.CONFLICT
+            );
+        }
     }
 
     public Page<RentalContract> tenantContractHistory(Long userId, Pageable pageable) {
-        return contracts.findByPrimaryTenantUserIdAndIsDeletedFalse(userId, pageable);
+        return contracts.findByPrimaryTenantUserIdAndIsDeletedFalse(userId, pageable).map(this::withOccupancy);
+    }
+
+    private RentalContract withOccupancy(RentalContract contract) {
+        contract.currentOccupantCount = 1 + contractOccupants.countActiveOnDate(contract.id, LocalDate.now());
+        return contract;
     }
 }

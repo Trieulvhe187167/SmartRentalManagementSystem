@@ -3,6 +3,7 @@ import '../../data/models/tenant_models.dart';
 import '../../data/models/invoice_models.dart';
 import '../../data/models/maintenance_models.dart';
 import '../../data/models/notification_models.dart';
+import '../../data/models/contract_models.dart';
 import '../../data/repositories/tenant_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 
@@ -60,6 +61,11 @@ final tenantDashboardProvider =
     AsyncNotifierProvider<TenantDashboardNotifier, TenantDashboardResponse>(
   TenantDashboardNotifier.new,
 );
+
+// ─── Tenant Contract Provider ────────────────────────────
+final tenantContractProvider = FutureProvider<RentalContract?>((ref) async {
+  return TenantRepository.instance.currentContract();
+});
 
 // ─── Tenant Invoices Provider ────────────────────────────
 class TenantInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {

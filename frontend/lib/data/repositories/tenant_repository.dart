@@ -9,12 +9,114 @@ import '../models/payment_models.dart';
 import '../models/meter_reading_models.dart';
 import '../models/maintenance_models.dart';
 import '../models/notification_models.dart';
+import '../models/auth_models.dart';
+import '../models/contract_models.dart';
 
 class TenantRepository {
   TenantRepository._();
   static final TenantRepository instance = TenantRepository._();
 
   final _dio = ApiClient.instance.dio;
+
+  Future<UserResponse> updateProfile(TenantProfileUpdateRequest req) async {
+    try {
+      final response = await _dio.patch(
+        ApiConstants.tenantProfile,
+        data: req.toJson(),
+      );
+      final apiResponse = ApiResponse<UserResponse>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => UserResponse.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  Future<EmailChangeStartResponse> requestEmailChange(String email) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.tenantProfileEmailRequest,
+        data: {'email': email},
+      );
+      final apiResponse = ApiResponse<EmailChangeStartResponse>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) =>
+            EmailChangeStartResponse.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  Future<UserResponse> verifyEmailChange({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final response = await _dio.post(
+        ApiConstants.tenantProfileEmailVerify,
+        data: {'email': email, 'code': code},
+      );
+      final apiResponse = ApiResponse<UserResponse>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => UserResponse.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  // GET /tenant/contracts/current
+  Future<RentalContract?> currentContract() async {
+    try {
+      final response = await _dio.get(ApiConstants.tenantCurrentContract);
+      final apiResponse = ApiResponse<RentalContract>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => RentalContract.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  Future<RentalContract> confirmContract(int contractId) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.tenantContracts}/$contractId/confirm',
+      );
+      final apiResponse = ApiResponse<RentalContract>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => RentalContract.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
+
+  Future<RentalContract> rejectContract({
+    required int contractId,
+    required String reason,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.tenantContracts}/$contractId/reject',
+        data: {'reason': reason},
+      );
+      final apiResponse = ApiResponse<RentalContract>.fromJson(
+        response.data as Map<String, dynamic>,
+        (json) => RentalContract.fromJson(json as Map<String, dynamic>),
+      );
+      return apiResponse.data!;
+    } on DioException catch (e) {
+      throw e.error ?? e;
+    }
+  }
 
   // GET /tenant/dashboard
   Future<TenantDashboardResponse> dashboard() async {
