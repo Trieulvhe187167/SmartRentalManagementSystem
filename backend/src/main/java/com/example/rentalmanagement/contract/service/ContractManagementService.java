@@ -481,6 +481,10 @@ public class ContractManagementService {
         contract.status = ContractStatus.ACTIVE;
         contract.tenantConfirmedAt = now;
         contract.activatedAt = now;
+
+        // Flush the ACTIVE contract first. The MySQL room-status trigger rejects
+        // OCCUPIED while it still sees the contract as PENDING_CONFIRMATION.
+        contracts.flush();
         contract.room.status = RoomStatus.OCCUPIED;
         return contract;
     }

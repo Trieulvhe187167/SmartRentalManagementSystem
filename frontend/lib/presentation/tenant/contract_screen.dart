@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,9 +24,40 @@ class TenantContractScreen extends ConsumerStatefulWidget {
       _TenantContractScreenState();
 }
 
-class _TenantContractScreenState extends ConsumerState<TenantContractScreen> {
+class _TenantContractScreenState extends ConsumerState<TenantContractScreen>
+    with WidgetsBindingObserver {
+  static const _refreshInterval = Duration(seconds: 10);
+
   bool _acceptedTerms = false;
   bool _actionLoading = false;
+  Timer? _refreshTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshTimer = Timer.periodic(_refreshInterval, (_) => _refreshContract());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshContract();
+    }
+  }
+
+  void _refreshContract() {
+    if (mounted && !_actionLoading) {
+      ref.invalidate(tenantContractProvider);
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
