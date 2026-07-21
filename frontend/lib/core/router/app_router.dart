@@ -271,19 +271,19 @@ final _routes = <RouteBase>[
     ],
   ),
   GoRoute(
-    path: AppRoutes.adminRoomDetail,
-    builder: (context, state) {
-      final id = int.parse(state.pathParameters['id']!);
-      return AdminRoomDetailScreen(roomId: id);
-    },
-  ),
-  GoRoute(
     path: AppRoutes.adminRoomForm,
     builder: (context, state) {
       final extra = state.extra as Map<String, dynamic>?;
       final roomId = extra?['roomId'] as int?;
       final room = extra?['room'] as Room?;
       return AdminRoomFormScreen(roomId: roomId, existingRoom: room);
+    },
+  ),
+  GoRoute(
+    path: AppRoutes.adminRoomDetail,
+    builder: (context, state) {
+      final id = int.parse(state.pathParameters['id']!);
+      return AdminRoomDetailScreen(roomId: id);
     },
   ),
   GoRoute(
@@ -331,7 +331,9 @@ class TenantShell extends StatelessWidget {
     int currentIndex = 0;
     if (location == AppRoutes.tenantHome) currentIndex = 0;
     if (location == AppRoutes.tenantInvoices ||
-        location.startsWith('/tenant/invoices')) currentIndex = 1;
+        location.startsWith('/tenant/invoices')) {
+      currentIndex = 1;
+    }
     if (location == AppRoutes.tenantMaintenance) currentIndex = 2;
     if (location == AppRoutes.tenantProfile) currentIndex = 3;
 
@@ -377,7 +379,6 @@ class TenantShell extends StatelessWidget {
     );
   }
 }
-
 
 // ─── Admin Shell (bottom nav) ────────────────────────────
 class AdminShell extends StatelessWidget {

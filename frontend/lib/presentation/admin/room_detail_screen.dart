@@ -13,8 +13,10 @@ import '../shared/widgets/empty_state.dart';
 import '../shared/widgets/loading_shimmer.dart';
 import 'admin_controller.dart';
 
-final adminRoomDetailProvider =
-    FutureProvider.family<Room, int>((ref, roomId) async {
+final adminRoomDetailProvider = FutureProvider.family<Room, int>((
+  ref,
+  roomId,
+) async {
   return AdminRepository.instance.room(roomId);
 });
 
@@ -24,16 +26,29 @@ class AdminRoomDetailScreen extends ConsumerStatefulWidget {
   const AdminRoomDetailScreen({super.key, required this.roomId});
 
   @override
-  ConsumerState<AdminRoomDetailScreen> createState() => _AdminRoomDetailScreenState();
+  ConsumerState<AdminRoomDetailScreen> createState() =>
+      _AdminRoomDetailScreenState();
 }
 
 class _AdminRoomDetailScreenState extends ConsumerState<AdminRoomDetailScreen> {
   bool _submitting = false;
 
+  Future<void> _openEditRoom(Room room) async {
+    final updated = await context.push<bool>(
+      AppRoutes.adminRoomForm,
+      extra: <String, dynamic>{'roomId': room.id, 'room': room},
+    );
+
+    if (updated == true) {
+      ref.invalidate(adminRoomDetailProvider(widget.roomId));
+      ref.invalidate(adminRoomsProvider);
+    }
+  }
+
   Future<void> _toggleRoomStatus(Room room) async {
     setState(() => _submitting = true);
     try {
-      final isActive = room.status?.toUpperCase() != 'INACTIVE';
+      final isActive = room.status.toUpperCase() != 'INACTIVE';
       if (isActive) {
         await AdminRepository.instance.deactivateRoom(widget.roomId);
       } else {
@@ -44,7 +59,11 @@ class _AdminRoomDetailScreenState extends ConsumerState<AdminRoomDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isActive ? 'Đã tạm ngưng hoạt động phòng' : 'Đã kích hoạt hoạt động phòng'),
+            content: Text(
+              isActive
+                  ? 'Đã tạm ngưng hoạt động phòng'
+                  : 'Đã kích hoạt hoạt động phòng',
+            ),
             backgroundColor: AppColors.success,
           ),
         );
@@ -52,7 +71,10 @@ class _AdminRoomDetailScreenState extends ConsumerState<AdminRoomDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     } finally {
@@ -72,11 +94,19 @@ class _AdminRoomDetailScreenState extends ConsumerState<AdminRoomDetailScreen> {
         actions: [
           roomDetailAsync.maybeWhen(
             data: (room) => IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Chỉnh sửa phòng',
+              onPressed: _submitting ? null : () => _openEditRoom(room),
+            ),
+            orElse: () => const SizedBox.shrink(),
+          ),
+          roomDetailAsync.maybeWhen(
+            data: (room) => IconButton(
               icon: Icon(
-                room.status?.toUpperCase() == 'INACTIVE'
+                room.status.toUpperCase() == 'INACTIVE'
                     ? Icons.play_circle_outline
                     : Icons.pause_circle_outline,
-                color: room.status?.toUpperCase() == 'INACTIVE'
+                color: room.status.toUpperCase() == 'INACTIVE'
                     ? AppColors.success
                     : AppColors.danger,
               ),
@@ -88,109 +118,69 @@ class _AdminRoomDetailScreenState extends ConsumerState<AdminRoomDetailScreen> {
         ],
       ),
       body: roomDetailAsync.when(
-        data: (room) {
-          final isOccupied = room.status?.toUpperCase() == 'OCCUPIED';
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // ─── Room Basic Header ────────────────────
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Phòng ${room.roomNumber}', style: AppTextStyles.headlineSm),
-                          StatusChip(status: room.status ?? 'AVAILABLE'),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Toà nhà: ${room.building ?? '—'} · Tầng ${room.floor ?? '—'}',
-                        style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 12),
-                      const Divider(),
-                      const SizedBox(height: 12),
-                      _buildInfoRow('Diện tích', '${room.area ?? 0} m²'),
-                      _buildInfoRow('Giá thuê', '${CurrencyFormatter.format(room.monthlyRent)}/tháng', valueColor: Theme.of(context).colorScheme.primaryContainer),
-                      _buildInfoRow('Số người ở tối đa', '${room.maxOccupants ?? 4} người'),
-                      if (room.description != null && room.description!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text('Mô tả thêm:', style: AppTextStyles.labelMd.copyWith(color: AppColors.outline)),
-                        const SizedBox(height: 4),
-                        Text(room.description!, style: AppTextStyles.bodySm),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // ─── Occupancy info ────────────────────────
-                if (isOccupied) ...[
-                  Text('Thông tin khách thuê hiện tại', style: AppTextStyles.titleMd),
-                  const SizedBox(height: 12),
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        data: (room) => SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: AppCard(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                                                Row(
-                          children: [
-                            Icon(Icons.person, color: Theme.of(context).colorScheme.primary),
-                            const SizedBox(width: 8),
-                            const Text('Hợp đồng thuê đang chạy', style: TextStyle(fontWeight: FontWeight.bold)),
-                          ],
+                        Text(
+                          'Phòng ${room.roomNumber}',
+                          style: AppTextStyles.headlineSm,
                         ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Phòng này hiện đang có hợp đồng hoạt động. Chi tiết hợp đồng và thông tin khách có thể được xem trong mục Quản lý Hợp đồng.',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          onPressed: () => context.go(AppRoutes.adminContracts),
-                          icon: const Icon(Icons.description_outlined),
-                          label: const Text('Xem hợp đồng thuê'),
-                        ),
+                        StatusChip(status: room.status),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                // ─── Operations Actions ───────────────────
-                Text('Hành động quản lý', style: AppTextStyles.titleMd),
-                const SizedBox(height: 12),
-                AppCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading: Icon(Icons.bolt, color: Theme.of(context).colorScheme.primary),
-                        title: const Text('Ghi chỉ số điện nước'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                        onTap: () => context.go(AppRoutes.adminMeterReadings),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Toà nhà: ${room.building ?? '—'} · Tầng ${room.floor ?? '—'}',
+                      style: AppTextStyles.bodyMd.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 10),
+                    _buildInfoRow('Diện tích', '${room.area ?? 0} m²'),
+                    _buildInfoRow(
+                      'Giá thuê',
+                      '${CurrencyFormatter.format(room.monthlyRent)}/tháng',
+                      valueColor: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer,
+                    ),
+                    _buildInfoRow(
+                      'Số người ở tối đa',
+                      '${room.maxOccupants ?? 4} người',
+                    ),
+                    if (room.description != null &&
+                        room.description!.isNotEmpty) ...[
+                      const SizedBox(height: 10),
                       const Divider(),
-                      ListTile(
-                        leading: const Icon(Icons.add_card_outlined, color: AppColors.success),
-                        title: const Text('Tạo hợp đồng mới'),
-                        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                        enabled: room.status?.toUpperCase() == 'AVAILABLE',
-                        onTap: () => context.push(AppRoutes.adminCreateContract),
+                      const SizedBox(height: 14),
+                      Text('Mô tả', style: AppTextStyles.titleSm),
+                      const SizedBox(height: 8),
+                      Text(
+                        room.description!,
+                        style: AppTextStyles.bodyMd.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          height: 1.5,
+                        ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 40),
-              ],
+              ),
             ),
-          );
-        },
+          ),
+        ),
         loading: () => const PageLoading(message: 'Đang tải chi tiết phòng...'),
         error: (err, stack) => ErrorState(
           message: 'Không thể tải chi tiết phòng',
@@ -206,7 +196,12 @@ class _AdminRoomDetailScreenState extends ConsumerState<AdminRoomDetailScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTextStyles.bodyMd.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          Text(
+            label,
+            style: AppTextStyles.bodyMd.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
           Text(
             value,
             style: AppTextStyles.bodyMd.copyWith(
