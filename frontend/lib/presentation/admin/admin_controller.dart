@@ -169,7 +169,7 @@ class AdminTenantsNotifier
   Future<String?> createTenant(TenantRequest req) async {
     try {
       await AdminRepository.instance.createTenant(req);
-      fetchTenants(refresh: true);
+      await fetchTenants(refresh: true);
       return null;
     } catch (e) {
       return e.toString();

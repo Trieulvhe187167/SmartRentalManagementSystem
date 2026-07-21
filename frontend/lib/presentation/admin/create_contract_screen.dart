@@ -11,7 +11,9 @@ import '../../data/repositories/admin_repository.dart';
 import '../shared/widgets/loading_shimmer.dart';
 import 'admin_controller.dart';
 
-final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
+final availableRoomsProvider = FutureProvider.autoDispose<List<Room>>((
+  ref,
+) async {
   final res = await AdminRepository.instance.rooms(
     status: 'AVAILABLE',
     size: 100,
@@ -19,7 +21,9 @@ final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
   return res.content;
 });
 
-final activeTenantsProvider = FutureProvider<List<TenantProfile>>((ref) async {
+final activeTenantsProvider = FutureProvider.autoDispose<List<TenantProfile>>((
+  ref,
+) async {
   final tenantPage = await AdminRepository.instance.tenants(size: 100);
   final contractPage = await AdminRepository.instance.contracts(size: 100);
   final unavailableTenantIds = <int>{
