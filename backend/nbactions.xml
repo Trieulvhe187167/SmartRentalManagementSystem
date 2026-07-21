@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+        <action>
+            <actionName>run</actionName>
+            <packagings>
+                <packaging>jar</packaging>
+            </packagings>
+            <goals>
+                <goal>spring-boot:run</goal>
+            </goals>
+            <properties>
+                <java.version>17</java.version>
+                <spring-boot.run.arguments>--spring.flyway.enabled=false</spring-boot.run.arguments>
+            </properties>
+        </action>
+    </actions>

@@ -63,7 +63,9 @@ final tenantDashboardProvider =
 );
 
 // ─── Tenant Contract Provider ────────────────────────────
-final tenantContractProvider = FutureProvider<RentalContract?>((ref) async {
+final tenantContractProvider = FutureProvider.autoDispose<RentalContract?>((
+  ref,
+) async {
   return TenantRepository.instance.currentContract();
 });
 

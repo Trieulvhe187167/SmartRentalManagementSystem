@@ -4,7 +4,7 @@ Spring Boot backend API for the Rental Building Room Management MVP.
 
 ## Stack
 
-- Java 25
+- Java 17
 - Spring Boot 3
 - Spring Security + JWT
 - Spring Data JPA / Hibernate
@@ -74,7 +74,7 @@ The app does not auto-create or migrate the schema. `spring.jpa.hibernate.ddl-au
 
 ## Run Locally
 
-Install JDK 21 and Maven, then run:
+Install JDK 17 and Maven, then run:
 
 ```powershell
 $env:DB_URL="jdbc:mysql://localhost:3306/rental_management_mvp?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"

@@ -49,15 +49,16 @@ class DashboardServiceTest {
                 currentUser,
                 notifications
         );
+    }
+
+    @Test
+    void monthlyRevenueExcludesDraftAndDebtFromOtherMonths() {
         when(rooms.countByIsDeletedFalse()).thenReturn(0L);
         when(rooms.countByStatusAndIsDeletedFalse(any(RoomStatus.class))).thenReturn(0L);
         when(maintenance.countByStatusInAndIsDeletedFalse(anyList())).thenReturn(0L);
         when(contracts.findByStatusAndEndDateBetweenAndIsDeletedFalse(any(), any(), any()))
                 .thenReturn(List.of());
-    }
 
-    @Test
-    void monthlyRevenueExcludesDraftAndDebtFromOtherMonths() {
         LocalDate now = LocalDate.now();
         Invoice draft = invoice(now.getMonthValue(), now.getYear(), InvoiceStatus.DRAFT, "1000", "0");
         Invoice issued = invoice(now.getMonthValue(), now.getYear(), InvoiceStatus.ISSUED, "2000", "500");

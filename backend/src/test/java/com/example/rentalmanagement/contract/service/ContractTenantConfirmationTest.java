@@ -29,6 +29,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -65,6 +66,11 @@ class ContractTenantConfirmationTest {
                 .thenReturn(Optional.of(contract));
         when(contracts.existsByRoomIdAndStatusAndIsDeletedFalse(3L, ContractStatus.ACTIVE))
                 .thenReturn(false);
+        doAnswer(invocation -> {
+            assertEquals(ContractStatus.ACTIVE, contract.status);
+            assertEquals(RoomStatus.AVAILABLE, contract.room.status);
+            return null;
+        }).when(contracts).flush();
 
         RentalContract result = service.confirmByTenant(7L, 11L);
 
