@@ -35,6 +35,7 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
   final _formKey = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
+  final _transactionRefCtrl = TextEditingController();
   String _paymentMethod = 'BANK_TRANSFER';
   DateTime _paymentDate = DateTime.now();
   bool _isSubmitting = false;
@@ -53,6 +54,7 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
     _amountCtrl.removeListener(_onAmountChanged);
     _amountCtrl.dispose();
     _noteCtrl.dispose();
+    _transactionRefCtrl.dispose();
     super.dispose();
   }
 
@@ -87,7 +89,7 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
       context: context,
       initialDate: _paymentDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 30)),
+      lastDate: DateTime.now(),
     );
     if (picked != null) {
       setState(() {
@@ -106,6 +108,9 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
         amount: amount,
         method: _paymentMethod,
         paymentDate: _paymentDate.toIso8601String().substring(0, 10),
+        transactionReference: _transactionRefCtrl.text.trim().isEmpty
+            ? null
+            : _transactionRefCtrl.text.trim(),
         notes: _noteCtrl.text.trim().isEmpty ? 'Ghi nhận thanh toán' : _noteCtrl.text.trim(),
       );
 
@@ -131,7 +136,9 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
   @override
   Widget build(BuildContext context) {
     final enteredAmount = double.tryParse(_amountCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
-    final remainingAfter = widget.remainingAmount - enteredAmount;
+    final remainingAfter = (widget.remainingAmount - enteredAmount)
+        .clamp(0, double.infinity)
+        .toDouble();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -151,8 +158,8 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                      Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.03),
                     ],
                   ),
                   border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5)),
@@ -211,7 +218,7 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Tổng hóa đơn', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                            Text('Công nợ hiện tại', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                             const SizedBox(height: 4),
                             Text(CurrencyFormatter.format(widget.remainingAmount), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           ],
@@ -219,10 +226,10 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('Còn lại cần thu', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                            Text('Dự kiến thu', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                             const SizedBox(height: 4),
                             Text(
-                              CurrencyFormatter.format(widget.remainingAmount),
+                              CurrencyFormatter.format(enteredAmount),
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.danger),
                             ),
                           ],
@@ -300,6 +307,26 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
                                 Expanded(child: _paymentMethodCard('OTHER', Icons.qr_code, 'Khác')),
                               ],
                             ),
+                            if (_paymentMethod != 'CASH') ...[
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Mã giao dịch / tham chiếu',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _transactionRefCtrl,
+                                decoration: InputDecoration(
+                                  hintText: 'Ví dụ: FT2407123456',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 20),
 
                             // Field: Ngày thanh toán
@@ -347,7 +374,7 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
                     // Card 3: Tóm tắt sau thanh toán
                     AppCard(
                       child: Container(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.05),
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,7 +395,7 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Trạng thái hóa đơn mới', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                                StatusChip(status: remainingAfter <= 0 ? 'PAID' : 'PARTIAL'),
+                                StatusChip(status: remainingAfter <= 0 ? 'PAID' : 'PARTIALLY_PAID'),
                               ],
                             ),
                           ],
@@ -443,9 +470,9 @@ class _AdminPaymentRecordingScreenState extends ConsumerState<AdminPaymentRecord
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
-          color: isSelected ? theme.colorScheme.primary.withOpacity(0.08) : Colors.transparent,
+          color: isSelected ? theme.colorScheme.primary.withValues(alpha: 0.08) : Colors.transparent,
           border: Border.all(
-            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outline.withOpacity(0.5),
+            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.outline.withValues(alpha: 0.5),
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(10),

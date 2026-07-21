@@ -281,11 +281,6 @@ public class BillingService {
     }
 
     @Transactional
-    public Invoice cancel(Long invoiceId) {
-        return cancel(invoiceId, new InvoiceCancelRequest(null));
-    }
-
-    @Transactional
     public Invoice cancel(Long invoiceId, InvoiceCancelRequest request) {
         Invoice invoice = invoice(invoiceId);
         if (!payments.findByInvoiceIdAndStatus(invoice.id, PaymentStatus.CONFIRMED).isEmpty()) {
@@ -303,7 +298,7 @@ public class BillingService {
 
     public InvoiceDetail invoiceDetail(Long id) {
         Invoice invoice = invoice(id);
-        return new InvoiceDetail(invoice, items.findByInvoiceIdAndIsDeletedFalseOrderByDisplayOrderAsc(id), payments.findByInvoiceIdAndStatus(id, PaymentStatus.CONFIRMED));
+        return new InvoiceDetail(invoice, items.findByInvoiceIdAndIsDeletedFalseOrderByDisplayOrderAsc(id), payments.findByInvoiceIdOrderByPaymentDateDesc(id));
     }
 
     public Page<Invoice> invoices(InvoiceStatus status, Integer month, Integer year, Long tenantId, Pageable pageable) {
@@ -358,8 +353,11 @@ public class BillingService {
     @Transactional
     public Payment recordPayment(Long invoiceId, PaymentCreateRequest request) {
         Invoice invoice = invoice(invoiceId);
-        if (invoice.status == InvoiceStatus.CANCELLED || invoice.status == InvoiceStatus.DRAFT) {
+        if (invoice.status == InvoiceStatus.CANCELLED) {
             throw new BusinessException("Invoice is cancelled", "INVOICE_CANCELLED");
+        }
+        if (invoice.status == InvoiceStatus.DRAFT) {
+            throw new BusinessException("A draft invoice cannot receive payments", "INVOICE_NOT_ISSUED");
         }
         BigDecimal remaining = invoice.totalAmount.subtract(invoice.paidAmount);
         if (request.amount().compareTo(remaining) > 0) {
@@ -387,6 +385,9 @@ public class BillingService {
     @Transactional
     public Payment cancelPayment(Long id, PaymentCancelRequest request) {
         Payment payment = payments.findById(id).orElseThrow(() -> new NotFoundException("Payment not found", "PAYMENT_NOT_FOUND"));
+        if (payment.status != PaymentStatus.CONFIRMED) {
+            throw new BusinessException("Only confirmed payments can be cancelled", "PAYMENT_NOT_CONFIRMED");
+        }
         payment.status = PaymentStatus.CANCELLED;
         payment.cancellationReason = request.cancellationReason();
         payment.cancelledAt = LocalDateTime.now();
@@ -408,8 +409,13 @@ public class BillingService {
         return payments.findByInvoiceTenantProfileUserId(currentUser.userId(), pageable);
     }
 
-    public Page<Invoice> debts(Pageable pageable) {
-        return invoices.debts(List.of(InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE), pageable);
+    public Page<Invoice> debts(Integer month, Integer year, Pageable pageable) {
+        return invoices.debts(
+                List.of(InvoiceStatus.ISSUED, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.OVERDUE),
+                month,
+                year,
+                pageable
+        );
     }
 
     private void ensureDraft(Invoice invoice) {

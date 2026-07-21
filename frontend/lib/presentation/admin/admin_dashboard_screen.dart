@@ -288,6 +288,35 @@ class AdminDashboardScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 28),
+                      Text('Chỉ số cần chú ý', style: AppTextStyles.titleLg),
+                      const SizedBox(height: 12),
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.35,
+                        children: [
+                          _buildAttentionTile(
+                            context: context,
+                            icon: Icons.account_balance_wallet_outlined,
+                            label: 'Tổng công nợ',
+                            value: CurrencyFormatter.format(data.totalDebt),
+                            color: AppColors.danger,
+                            onTap: () => context.go(AppRoutes.adminInvoices),
+                          ),
+                          _buildAttentionTile(
+                            context: context,
+                            icon: Icons.event_busy_outlined,
+                            label: 'Hợp đồng sắp hết hạn',
+                            value: '${data.expiringContractsCount}',
+                            color: AppColors.warning,
+                            onTap: () => context.go(AppRoutes.adminContracts),
+                          ),
+                        ],
+                      ),
                     ],
                   );
                 },
@@ -474,6 +503,44 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAttentionTile({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: AppTextStyles.titleLg.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: AppTextStyles.bodySm.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

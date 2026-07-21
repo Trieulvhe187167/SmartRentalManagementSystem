@@ -20,10 +20,9 @@ final adminRoomStatsProvider = FutureProvider<Map<String, int>>((ref) async {
   return AdminRepository.instance.roomStats();
 });
 
-final adminRevenueSummaryProvider = FutureProvider<Map<String, double>>((
-  ref,
-) async {
-  return AdminRepository.instance.revenueSummary();
+final adminRevenueSummaryProvider =
+    FutureProvider.family<List<MonthlyRevenueData>, int>((ref, year) async {
+  return AdminRepository.instance.revenueSummary(year: year);
 });
 
 final adminExpiringContractsProvider = FutureProvider<List<RentalContract>>((
@@ -359,9 +358,11 @@ class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
   String? _statusFilter;
   int? _month;
   int? _year;
+  bool _debtOnly = false;
 
   void updateFilters(String? status, int? month, int? year) {
-    _statusFilter = status == 'ALL' ? null : status;
+    _debtOnly = status == 'DEBT';
+    _statusFilter = status == 'ALL' || _debtOnly ? null : status;
     _month = month;
     _year = year;
     fetchInvoices(refresh: true);
@@ -381,13 +382,20 @@ class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
     }
 
     try {
-      final pageResponse = await AdminRepository.instance.invoices(
-        page: state.currentPage,
-        size: 20,
-        status: _statusFilter,
-        month: _month,
-        year: _year,
-      );
+      final pageResponse = _debtOnly
+          ? await AdminRepository.instance.debts(
+              page: state.currentPage,
+              size: 20,
+              month: _month,
+              year: _year,
+            )
+          : await AdminRepository.instance.invoices(
+              page: state.currentPage,
+              size: 20,
+              status: _statusFilter,
+              month: _month,
+              year: _year,
+            );
       state = state.copyWith(
         items: refresh
             ? pageResponse.content
@@ -436,9 +444,9 @@ class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
     }
   }
 
-  Future<String?> cancelInvoice(int id) async {
+  Future<String?> cancelInvoice(int id, String reason) async {
     try {
-      await AdminRepository.instance.cancelInvoice(id);
+      await AdminRepository.instance.cancelInvoice(id, reason);
       fetchInvoices(refresh: true);
       return null;
     } catch (e) {

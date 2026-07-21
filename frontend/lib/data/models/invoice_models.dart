@@ -120,6 +120,7 @@ class InvoiceItem {
   final double? unitPrice;
   final double? amount;
   final String? type;
+  final String? unit;
 
   const InvoiceItem({
     this.id,
@@ -128,6 +129,7 @@ class InvoiceItem {
     this.unitPrice,
     this.amount,
     this.type,
+    this.unit,
   });
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
@@ -137,7 +139,8 @@ class InvoiceItem {
       quantity: (json['quantity'] as num?)?.toDouble(),
       unitPrice: (json['unitPrice'] as num?)?.toDouble(),
       amount: (json['amount'] as num?)?.toDouble(),
-      type: json['type'] as String?,
+      type: json['type'] as String? ?? json['itemType'] as String?,
+      unit: json['unit'] as String?,
     );
   }
 
@@ -148,6 +151,7 @@ class InvoiceItem {
     'unitPrice': unitPrice,
     'amount': amount,
     'type': type,
+    'unit': unit,
   };
 }
 
@@ -218,5 +222,37 @@ class InvoiceIssueRequest {
   Map<String, dynamic> toJson() => {
     'issueDate': issueDate ?? DateTime.now().toIso8601String().substring(0, 10),
     'dueDate': dueDate,
+  };
+}
+
+class InvoiceCancelRequest {
+  final String reason;
+
+  const InvoiceCancelRequest({required this.reason});
+
+  Map<String, dynamic> toJson() => {'cancellationReason': reason};
+}
+
+class InvoiceAdjustmentRequest {
+  final String description;
+  final double amount;
+  final double quantity;
+  final String unit;
+  final String? note;
+
+  const InvoiceAdjustmentRequest({
+    required this.description,
+    required this.amount,
+    this.quantity = 1,
+    this.unit = 'điều chỉnh',
+    this.note,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'description': description,
+    'amount': amount,
+    'quantity': quantity,
+    'unit': unit,
+    if (note != null && note!.trim().isNotEmpty) 'note': note,
   };
 }

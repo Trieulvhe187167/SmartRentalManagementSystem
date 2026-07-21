@@ -1,6 +1,7 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -13,25 +14,26 @@ class AdminRevenueReportScreen extends ConsumerStatefulWidget {
   const AdminRevenueReportScreen({super.key});
 
   @override
-  ConsumerState<AdminRevenueReportScreen> createState() => _AdminRevenueReportScreenState();
+  ConsumerState<AdminRevenueReportScreen> createState() =>
+      _AdminRevenueReportScreenState();
 }
 
-class _AdminRevenueReportScreenState extends ConsumerState<AdminRevenueReportScreen> {
+class _AdminRevenueReportScreenState
+    extends ConsumerState<AdminRevenueReportScreen> {
   int _selectedYear = DateTime.now().year;
 
   @override
   Widget build(BuildContext context) {
-    final revenueAsync = ref.watch(adminRevenueSummaryProvider);
+    final revenueAsync = ref.watch(
+      adminRevenueSummaryProvider(_selectedYear),
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('Báo cáo doanh thu'),
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
-      ),
+      appBar: AppBar(title: const Text('Báo cáo doanh thu')),
       body: RefreshIndicator(
         onRefresh: () async {
-          ref.invalidate(adminRevenueSummaryProvider);
+          ref.invalidate(adminRevenueSummaryProvider(_selectedYear));
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -39,43 +41,62 @@ class _AdminRevenueReportScreenState extends ConsumerState<AdminRevenueReportScr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ─── Year Selector ───────────────────────────
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Doanh thu năm $_selectedYear', style: AppTextStyles.titleLg),
+                  Expanded(
+                    child: Text(
+                      'Doanh thu năm $_selectedYear',
+                      style: AppTextStyles.titleLg,
+                    ),
+                  ),
                   DropdownButton<int>(
                     value: _selectedYear,
-                    items: [
-                      DropdownMenuItem(value: DateTime.now().year - 1, child: Text('${DateTime.now().year - 1}')),
-                      DropdownMenuItem(value: DateTime.now().year, child: Text('${DateTime.now().year}')),
-                      DropdownMenuItem(value: DateTime.now().year + 1, child: Text('${DateTime.now().year + 1}')),
-                    ],
-                    onChanged: (v) {
-                      if (v != null) setState(() => _selectedYear = v);
+                    items: List.generate(5, (index) {
+                      final year = DateTime.now().year - 3 + index;
+                      return DropdownMenuItem(
+                        value: year,
+                        child: Text('$year'),
+                      );
+                    }),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedYear = value);
+                      }
                     },
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-
-              // ─── Bar Chart Section ───────────────────────
               revenueAsync.when(
-                data: (revenueMap) {
-                  // Revenue map contains month keys like "06" or "2026-06". Let's parse and build T1-T12 values
-                  final List<double> monthlyRevenue = List.generate(12, (index) {
-                    final monthStr = '${index + 1}'.padLeft(2, '0');
-                    // check both "06" and "2026-06"
-                    final val1 = revenueMap[monthStr] ?? 0.0;
-                    final val2 = revenueMap['$_selectedYear-$monthStr'] ?? 0.0;
-                    return val1 > 0 ? val1 : val2;
+                data: (months) {
+                  final billed = List<double>.filled(12, 0);
+                  final collected = List<double>.filled(12, 0);
+                  final debt = List<double>.filled(12, 0);
+                  var invoiceCount = 0;
+                  var paidInvoiceCount = 0;
+                  for (final data in months) {
+                    if (data.month < 1 || data.month > 12) continue;
+                    final index = data.month - 1;
+                    billed[index] = data.totalRevenue;
+                    collected[index] = data.collectedRevenue;
+                    debt[index] = data.debtAmount;
+                    invoiceCount += data.invoiceCount;
+                    paidInvoiceCount += data.paidInvoiceCount;
+                  }
+
+                  final totalBilled = billed.fold<double>(0, (a, b) => a + b);
+                  final totalCollected = collected.fold<double>(
+                    0,
+                    (a, b) => a + b,
+                  );
+                  final totalDebt = debt.fold<double>(0, (a, b) => a + b);
+                  final collectionRate = totalBilled == 0
+                      ? 0.0
+                      : totalCollected / totalBilled * 100;
+                  final maxValue = billed.fold<double>(0, (current, value) {
+                    return value > current ? value : current;
                   });
-
-                  double maxVal = monthlyRevenue.fold(0.0, (max, element) => element > max ? element : max);
-                  if (maxVal == 0.0) maxVal = 10000000.0; // default max Y limit
-
-                  // Calculate totals
-                  final totalRevenue = monthlyRevenue.reduce((a, b) => a + b);
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -86,70 +107,117 @@ class _AdminRevenueReportScreenState extends ConsumerState<AdminRevenueReportScr
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Biểu đồ doanh thu hàng tháng (VND)',
-                              style: AppTextStyles.titleSm.copyWith(color: AppColors.outline),
+                              'Doanh thu và công nợ theo tháng',
+                              style: AppTextStyles.titleSm,
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 16,
+                              runSpacing: 8,
+                              children: [
+                                _buildLegend(
+                                  context,
+                                  'Đã lập hóa đơn',
+                                  Theme.of(context).colorScheme.primary,
+                                ),
+                                _buildLegend(
+                                  context,
+                                  'Đã thu',
+                                  AppColors.success,
+                                ),
+                                _buildLegend(
+                                  context,
+                                  'Còn nợ',
+                                  AppColors.warning,
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 24),
                             SizedBox(
-                              height: 240,
+                              height: 260,
                               child: BarChart(
                                 BarChartData(
                                   alignment: BarChartAlignment.spaceAround,
-                                  maxY: maxVal * 1.2,
+                                  maxY: maxValue == 0 ? 1 : maxValue * 1.2,
                                   barTouchData: BarTouchData(
                                     touchTooltipData: BarTouchTooltipData(
-                                      getTooltipColor: (_) => AppColors.inverseSurface,
-                                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                                      getTooltipColor: (_) =>
+                                          AppColors.inverseSurface,
+                                      getTooltipItem:
+                                          (group, groupIndex, rod, rodIndex) {
+                                        const labels = [
+                                          'Đã lập',
+                                          'Đã thu',
+                                          'Còn nợ',
+                                        ];
                                         return BarTooltipItem(
-                                          'Tháng ${group.x + 1}\n${CurrencyFormatter.compact(rod.toY)}',
-                                          const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                          '${labels[rodIndex]} T${group.x + 1}\n${CurrencyFormatter.compact(rod.toY)}',
+                                          const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         );
                                       },
                                     ),
                                   ),
                                   titlesData: FlTitlesData(
-                                    show: true,
                                     bottomTitles: AxisTitles(
                                       sideTitles: SideTitles(
                                         showTitles: true,
-                                        getTitlesWidget: (val, _) {
-                                          return Padding(
-                                            padding: const EdgeInsets.only(top: 8),
-                                            child: Text(
-                                              'T${val.toInt() + 1}',
-                                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                                            ),
-                                          );
-                                        },
+                                        getTitlesWidget: (value, _) => Padding(
+                                          padding: const EdgeInsets.only(top: 8),
+                                          child: Text(
+                                            'T${value.toInt() + 1}',
+                                            style: AppTextStyles.labelSm,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                     leftTitles: AxisTitles(
                                       sideTitles: SideTitles(
                                         showTitles: true,
-                                        reservedSize: 46,
-                                        getTitlesWidget: (val, _) {
-                                          return Text(
-                                            CurrencyFormatter.compact(val),
-                                            style: const TextStyle(fontSize: 8, color: AppColors.outline),
-                                          );
-                                        },
+                                        reservedSize: 48,
+                                        getTitlesWidget: (value, _) => Text(
+                                          CurrencyFormatter.compact(value),
+                                          style: AppTextStyles.labelSm.copyWith(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.outline,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                    topTitles: const AxisTitles(
+                                      sideTitles: SideTitles(showTitles: false),
+                                    ),
+                                    rightTitles: const AxisTitles(
+                                      sideTitles: SideTitles(showTitles: false),
+                                    ),
                                   ),
-                                  gridData: const FlGridData(show: false),
+                                  gridData: FlGridData(
+                                    drawVerticalLine: false,
+                                    getDrawingHorizontalLine: (_) => FlLine(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                                      strokeWidth: 0.6,
+                                    ),
+                                  ),
                                   borderData: FlBorderData(show: false),
                                   barGroups: List.generate(12, (index) {
                                     return BarChartGroupData(
                                       x: index,
+                                      barsSpace: 2,
                                       barRods: [
-                                        BarChartRodData(
-                                          toY: monthlyRevenue[index],
-                                          color: Theme.of(context).colorScheme.primaryContainer,
-                                          width: 14,
-                                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                                        _bar(
+                                          billed[index],
+                                          Theme.of(context).colorScheme.primary,
                                         ),
+                                        _bar(
+                                          collected[index],
+                                          AppColors.success,
+                                        ),
+                                        _bar(debt[index], AppColors.warning),
                                       ],
                                     );
                                   }),
@@ -160,29 +228,58 @@ class _AdminRevenueReportScreenState extends ConsumerState<AdminRevenueReportScr
                         ),
                       ),
                       const SizedBox(height: 20),
-
-                      // Summary Stats
                       Text('Thống kê tổng hợp', style: AppTextStyles.titleLg),
                       const SizedBox(height: 12),
                       AppCard(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: Column(
                           children: [
-                            _buildReportStatRow('Tổng doanh thu thực nhận', CurrencyFormatter.format(totalRevenue), valueColor: AppColors.success),
-                            const Divider(),
-                            _buildReportStatRow('Số hóa đơn đã chốt', '12 hóa đơn'),
-                            const Divider(),
-                            _buildReportStatRow('Tỉ lệ hoàn thành', '100%', valueColor: Theme.of(context).colorScheme.primary),
+                            _buildReportStatRow(
+                              'Tổng giá trị hóa đơn',
+                              CurrencyFormatter.format(totalBilled),
+                            ),
+                            const Divider(height: 1),
+                            _buildReportStatRow(
+                              'Doanh thu thực nhận',
+                              CurrencyFormatter.format(totalCollected),
+                              valueColor: AppColors.success,
+                            ),
+                            const Divider(height: 1),
+                            _buildReportStatRow(
+                              'Công nợ còn lại',
+                              CurrencyFormatter.format(totalDebt),
+                              valueColor: AppColors.warning,
+                            ),
+                            const Divider(height: 1),
+                            _buildReportStatRow(
+                              'Hóa đơn đã thanh toán',
+                              '$paidInvoiceCount/$invoiceCount hóa đơn',
+                            ),
+                            const Divider(height: 1),
+                            _buildReportStatRow(
+                              'Tỷ lệ thu tiền',
+                              '${collectionRate.toStringAsFixed(1)}%',
+                              valueColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                            ),
                           ],
                         ),
                       ),
                     ],
                   );
                 },
-                loading: () => const PageLoading(message: 'Đang kết xuất biểu đồ doanh thu...'),
-                error: (e, _) => ErrorState(
-                  message: 'Không thể kết xuất dữ liệu doanh thu: $e',
-                  onRetry: () => ref.invalidate(adminRevenueSummaryProvider),
+                loading: () => const PageLoading(
+                  message: 'Đang tải báo cáo doanh thu...',
+                ),
+                error: (error, _) => ErrorState(
+                  message: 'Không thể tải báo cáo doanh thu: $error',
+                  onRetry: () => ref.invalidate(
+                    adminRevenueSummaryProvider(_selectedYear),
+                  ),
                 ),
               ),
               const SizedBox(height: 40),
@@ -193,16 +290,52 @@ class _AdminRevenueReportScreenState extends ConsumerState<AdminRevenueReportScr
     );
   }
 
-  Widget _buildReportStatRow(String label, String value, {Color? valueColor}) {
+  BarChartRodData _bar(double value, Color color) {
+    return BarChartRodData(
+      toY: value,
+      color: color,
+      width: 7,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+    );
+  }
+
+  Widget _buildLegend(BuildContext context, String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: AppTextStyles.bodySm.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReportStatRow(
+    String label,
+    String value, {
+    Color? valueColor,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTextStyles.bodyLg),
+          Expanded(child: Text(label, style: AppTextStyles.bodyMd)),
+          const SizedBox(width: 12),
           Text(
             value,
-            style: AppTextStyles.bodyLg.copyWith(fontWeight: FontWeight.bold, color: valueColor),
+            style: AppTextStyles.bodyMd.copyWith(
+              fontWeight: FontWeight.bold,
+              color: valueColor,
+            ),
           ),
         ],
       ),

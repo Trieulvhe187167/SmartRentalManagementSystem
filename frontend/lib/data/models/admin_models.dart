@@ -63,6 +63,8 @@ class MonthlyRevenueData {
   final double totalRevenue;
   final double collectedRevenue;
   final double debtAmount;
+  final int invoiceCount;
+  final int paidInvoiceCount;
 
   const MonthlyRevenueData({
     required this.month,
@@ -70,6 +72,8 @@ class MonthlyRevenueData {
     required this.totalRevenue,
     required this.collectedRevenue,
     required this.debtAmount,
+    required this.invoiceCount,
+    required this.paidInvoiceCount,
   });
 
   factory MonthlyRevenueData.fromJson(Map<String, dynamic> json) {
@@ -79,6 +83,8 @@ class MonthlyRevenueData {
       totalRevenue: (json['totalRevenue'] as num?)?.toDouble() ?? 0,
       collectedRevenue: (json['collectedRevenue'] as num?)?.toDouble() ?? 0,
       debtAmount: (json['debtAmount'] as num?)?.toDouble() ?? 0,
+      invoiceCount: (json['invoiceCount'] as num?)?.toInt() ?? 0,
+      paidInvoiceCount: (json['paidInvoiceCount'] as num?)?.toInt() ?? 0,
     );
   }
 }
