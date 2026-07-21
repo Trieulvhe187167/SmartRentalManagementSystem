@@ -165,58 +165,66 @@ class _AdminContractManagementScreenState
   }
 
   Widget _buildContractCard(BuildContext context, RentalContract contract) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Material(
         color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Số HĐ: ${contract.contractNumber ?? '—'}',
-              style: AppTextStyles.titleMd.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            StatusChip(status: contract.status ?? 'ACTIVE'),
-          ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
         ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            Text(
-              'Phòng: ${contract.roomNumber} · Khách: ${contract.tenantName}',
-              style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Thời hạn: ${DateFormatter.format(DateFormatter.tryParse(contract.startDate))} - ${DateFormatter.format(DateFormatter.tryParse(contract.endDate))}',
-              style: AppTextStyles.bodySm.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(16),
+          title: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  'Số HĐ: ${contract.contractNumber ?? '—'}',
+                  style: AppTextStyles.titleMd.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Giá thuê: ${CurrencyFormatter.format(contract.monthlyRent)}/tháng',
-              style: AppTextStyles.bodyMd.copyWith(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                fontWeight: FontWeight.bold,
+              const SizedBox(width: 8),
+              StatusChip(status: contract.status ?? 'ACTIVE'),
+            ],
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              Text(
+                'Phòng: ${contract.roomNumber} · Khách: ${contract.tenantName}',
+                style: AppTextStyles.bodyMd.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Đang ở: ${contract.currentOccupantCount ?? 1}/${contract.maxOccupants ?? '--'} người',
-              style: AppTextStyles.bodySm,
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Thời hạn: ${DateFormatter.format(DateFormatter.tryParse(contract.startDate))} - ${DateFormatter.format(DateFormatter.tryParse(contract.endDate))}',
+                style: AppTextStyles.bodySm.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Giá thuê: ${CurrencyFormatter.format(contract.monthlyRent)}/tháng',
+                style: AppTextStyles.bodyMd.copyWith(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Đang ở: ${contract.currentOccupantCount ?? 1}/${contract.maxOccupants ?? '--'} người',
+                style: AppTextStyles.bodySm,
+              ),
+            ],
+          ),
+          onTap: () => _showContractDetailSheet(context, contract),
         ),
-        onTap: () => _showContractDetailSheet(context, contract),
       ),
     );
   }
