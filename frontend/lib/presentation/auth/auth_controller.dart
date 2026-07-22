@@ -85,8 +85,17 @@ class AuthController extends StateNotifier<AuthState> {
       state = state.copyWith(status: AuthStatus.authenticated, user: user);
       return LoginResult.success(role: user.role ?? '');
     } on ApiException catch (e) {
-      state = state.copyWith(status: AuthStatus.error, error: e.message);
-      return LoginResult.failure(e.message);
+      final message = switch (e.errorCode) {
+        'AUTH_INVALID_CREDENTIALS' =>
+          'Tên đăng nhập hoặc mật khẩu không chính xác.',
+        'AUTH_ACCOUNT_LOCKED' =>
+          'Tài khoản đã bị khóa. Vui lòng liên hệ quản lý.',
+        'AUTH_ACCOUNT_INACTIVE' =>
+          'Tài khoản đã ngừng hoạt động. Vui lòng liên hệ quản lý.',
+        _ => e.message,
+      };
+      state = state.copyWith(status: AuthStatus.error, error: message);
+      return LoginResult.failure(message);
     } catch (e) {
       final msg = 'Đăng nhập thất bại. Vui lòng thử lại.';
       state = state.copyWith(status: AuthStatus.error, error: msg);
