@@ -21,7 +21,6 @@ final adminFloorsListProvider = FutureProvider.family<List<Floor>, int?>((
   ref,
   buildingId,
 ) async {
-  if (buildingId == null) return const [];
   final res = await AdminRepository.instance.floors(
     buildingId: buildingId,
     size: 100,

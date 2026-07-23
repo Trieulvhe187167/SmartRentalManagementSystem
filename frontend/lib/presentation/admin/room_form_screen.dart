@@ -177,8 +177,7 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final buildingsAsync = ref.watch(adminBuildingsListProvider);
-    final floorsAsync = ref.watch(adminFloorsListProvider(_selectedBuildingId));
+    final floorsAsync = ref.watch(adminFloorsListProvider(null));
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -239,55 +238,6 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Dropdown Tòa nhà
-                    buildingsAsync.when(
-                      data: (buildings) => DropdownButtonFormField<int>(
-                        value:
-                            _selectedBuildingId != null &&
-                                buildings.any(
-                                  (b) => b.id == _selectedBuildingId,
-                                )
-                            ? _selectedBuildingId
-                            : null,
-                        decoration: _inputDecoration('Tòa nhà *'),
-                        isExpanded: true,
-                        items: buildings
-                            .map(
-                              (b) => DropdownMenuItem<int>(
-                                value: b.id,
-                                child: Text(
-                                  b.name,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (val) {
-                          setState(() {
-                            _selectedBuildingId = val;
-                            _selectedFloorId = null;
-                          });
-                          ref.invalidate(adminFloorsListProvider(val));
-                        },
-                        validator: (v) =>
-                            v == null ? 'Vui lòng chọn tòa nhà' : null,
-                      ),
-                      loading: () => const CardShimmer(height: 56),
-                      error: (e, _) => DropdownButtonFormField<int>(
-                        value: null,
-                        decoration: _inputDecoration('Tòa nhà *'),
-                        items: const [],
-                        onChanged: null,
-                        hint: Text(
-                          'Không tải được danh sách tòa',
-                          style: AppTextStyles.bodySm.copyWith(
-                            color: AppColors.danger,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
                     // Dropdown Tầng
                     floorsAsync.when(
                       data: (floors) => DropdownButtonFormField<int>(
@@ -296,39 +246,30 @@ class _AdminRoomFormScreenState extends ConsumerState<AdminRoomFormScreen> {
                                 floors.any((f) => f.id == _selectedFloorId)
                             ? _selectedFloorId
                             : null,
-                        decoration: _inputDecoration('Tầng *').copyWith(
-                          enabled: _selectedBuildingId != null,
-                          hintText: _selectedBuildingId == null
-                              ? 'Chọn tòa nhà trước'
-                              : null,
-                        ),
+                        decoration: _inputDecoration('Tầng *'),
                         isExpanded: true,
-                        disabledHint: Text(
-                          'Chọn tòa nhà trước',
-                          style: AppTextStyles.bodySm.copyWith(
-                            color: AppColors.outline,
-                          ),
-                        ),
-                        items: _selectedBuildingId == null
-                            ? []
-                            : floors
-                                  .map(
-                                    (f) => DropdownMenuItem<int>(
-                                      value: f.id,
-                                      child: Text(
-                                        f.name != null && f.name!.isNotEmpty
-                                            ? f.name!
-                                            : 'Tầng ${f.floorNumber}',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                        onChanged: _selectedBuildingId == null
-                            ? null
-                            : (val) {
-                                setState(() => _selectedFloorId = val);
-                              },
+                        items: floors
+                            .map(
+                              (f) => DropdownMenuItem<int>(
+                                value: f.id,
+                                child: Text(
+                                  f.name != null && f.name!.isNotEmpty
+                                      ? f.name!
+                                      : 'Tầng ${f.floorNumber}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          final floor = val == null
+                              ? null
+                              : floors.firstWhere((item) => item.id == val);
+                          setState(() {
+                            _selectedFloorId = val;
+                            _selectedBuildingId = floor?.buildingId;
+                          });
+                        },
                         validator: (v) =>
                             v == null ? 'Vui lòng chọn tầng' : null,
                       ),
