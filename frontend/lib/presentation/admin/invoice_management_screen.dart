@@ -16,8 +16,10 @@ import '../shared/widgets/empty_state.dart';
 import '../shared/widgets/loading_shimmer.dart';
 import 'admin_controller.dart';
 
-final adminInvoiceDetailProvider =
-    FutureProvider.family<InvoiceDetail, int>((ref, invoiceId) {
+final adminInvoiceDetailProvider = FutureProvider.family<InvoiceDetail, int>((
+  ref,
+  invoiceId,
+) {
   return AdminRepository.instance.invoiceDetail(invoiceId);
 });
 
@@ -25,10 +27,12 @@ class AdminInvoiceManagementScreen extends ConsumerStatefulWidget {
   const AdminInvoiceManagementScreen({super.key});
 
   @override
-  ConsumerState<AdminInvoiceManagementScreen> createState() => _AdminInvoiceManagementScreenState();
+  ConsumerState<AdminInvoiceManagementScreen> createState() =>
+      _AdminInvoiceManagementScreenState();
 }
 
-class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManagementScreen> {
+class _AdminInvoiceManagementScreenState
+    extends ConsumerState<AdminInvoiceManagementScreen> {
   final _scrollController = ScrollController();
   final _filterScrollController = ScrollController();
   String _selectedStatus = 'ALL';
@@ -49,17 +53,16 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       ref.read(adminInvoicesProvider.notifier).fetchInvoices();
     }
   }
 
   void _applyFilters() {
-    ref.read(adminInvoicesProvider.notifier).updateFilters(
-          _selectedStatus,
-          _selectedMonth,
-          _selectedYear,
-        );
+    ref
+        .read(adminInvoicesProvider.notifier)
+        .updateFilters(_selectedStatus, _selectedMonth, _selectedYear);
   }
 
   @override
@@ -97,9 +100,15 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                           initialValue: _selectedMonth,
                           decoration: const InputDecoration(labelText: 'Tháng'),
                           items: [
-                            const DropdownMenuItem(value: null, child: Text('Tất cả')),
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Tất cả'),
+                            ),
                             ...List.generate(12, (i) {
-                              return DropdownMenuItem(value: i + 1, child: Text('Tháng ${i + 1}'));
+                              return DropdownMenuItem(
+                                value: i + 1,
+                                child: Text('Tháng ${i + 1}'),
+                              );
                             }),
                           ],
                           onChanged: (v) {
@@ -114,10 +123,22 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                           initialValue: _selectedYear,
                           decoration: const InputDecoration(labelText: 'Năm'),
                           items: [
-                            const DropdownMenuItem(value: null, child: Text('Tất cả')),
-                            DropdownMenuItem(value: DateTime.now().year - 1, child: Text('${DateTime.now().year - 1}')),
-                            DropdownMenuItem(value: DateTime.now().year, child: Text('${DateTime.now().year}')),
-                            DropdownMenuItem(value: DateTime.now().year + 1, child: Text('${DateTime.now().year + 1}')),
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Tất cả'),
+                            ),
+                            DropdownMenuItem(
+                              value: DateTime.now().year - 1,
+                              child: Text('${DateTime.now().year - 1}'),
+                            ),
+                            DropdownMenuItem(
+                              value: DateTime.now().year,
+                              child: Text('${DateTime.now().year}'),
+                            ),
+                            DropdownMenuItem(
+                              value: DateTime.now().year + 1,
+                              child: Text('${DateTime.now().year + 1}'),
+                            ),
                           ],
                           onChanged: (v) {
                             setState(() => _selectedYear = v);
@@ -150,7 +171,10 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                           const SizedBox(width: 8),
                           _buildFilterChip('ISSUED', 'Phát hành'),
                           const SizedBox(width: 8),
-                          _buildFilterChip('PARTIALLY_PAID', 'Thanh toán một phần'),
+                          _buildFilterChip(
+                            'PARTIALLY_PAID',
+                            'Thanh toán một phần',
+                          ),
                           const SizedBox(width: 8),
                           _buildFilterChip('DEBT', 'Công nợ'),
                           const SizedBox(width: 8),
@@ -173,36 +197,41 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                   ? ListView.builder(
                       padding: const EdgeInsets.all(20),
                       itemCount: 4,
-                      itemBuilder: (context, index) => const CardShimmer(height: 120),
+                      itemBuilder: (context, index) =>
+                          const CardShimmer(height: 120),
                     )
                   : state.error != null
-                      ? ErrorState(
-                          message: 'Lỗi tải hóa đơn: ${state.error}',
-                          onRetry: () => ref.read(adminInvoicesProvider.notifier).fetchInvoices(refresh: true),
-                        )
-                      : state.items.isEmpty
-                          ? const EmptyState(
-                              title: 'Không tìm thấy hóa đơn nào',
-                              subtitle: 'Chọn lọc khác hoặc bấm nút ở góc phải để chạy hóa đơn tự động',
-                              icon: Icons.receipt_long_outlined,
-                            )
-                          : ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.all(20),
-                              itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == state.items.length) {
-                                  return const Center(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(16),
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  );
-                                }
-                                final item = state.items[index];
-                                return _buildInvoiceCard(context, item);
-                              },
+                  ? ErrorState(
+                      message: 'Lỗi tải hóa đơn: ${state.error}',
+                      onRetry: () => ref
+                          .read(adminInvoicesProvider.notifier)
+                          .fetchInvoices(refresh: true),
+                    )
+                  : state.items.isEmpty
+                  ? const EmptyState(
+                      title: 'Không tìm thấy hóa đơn nào',
+                      subtitle:
+                          'Chọn lọc khác hoặc bấm nút ở góc phải để chạy hóa đơn tự động',
+                      icon: Icons.receipt_long_outlined,
+                    )
+                  : ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(20),
+                      itemCount:
+                          state.items.length + (state.isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == state.items.length) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: CircularProgressIndicator(),
                             ),
+                          );
+                        }
+                        final item = state.items[index];
+                        return _buildInvoiceCard(context, item);
+                      },
+                    ),
             ),
           ],
         ),
@@ -249,7 +278,9 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
           children: [
             Text(
               'Phòng ${invoice.roomNumber}',
-              style: AppTextStyles.titleMd.copyWith(fontWeight: FontWeight.bold),
+              style: AppTextStyles.titleMd.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             StatusChip(status: invoice.status ?? 'DRAFT'),
           ],
@@ -260,7 +291,9 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
             const SizedBox(height: 8),
             Text(
               'Khách: ${invoice.tenantName} · Tháng ${invoice.billingMonth}/${invoice.billingYear}',
-              style: AppTextStyles.bodySm.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: AppTextStyles.bodySm.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -295,7 +328,9 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
       builder: (context) {
         return _InvoiceDetailView(
           invoiceId: invoiceId,
-          onRefreshList: () => ref.read(adminInvoicesProvider.notifier).fetchInvoices(refresh: true),
+          onRefreshList: () => ref
+              .read(adminInvoicesProvider.notifier)
+              .fetchInvoices(refresh: true),
         );
       },
     );
@@ -315,7 +350,9 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Chạy hóa đơn tự động cho toàn bộ phòng hoạt động trong tháng này:'),
+              const Text(
+                'Chạy hóa đơn tự động cho toàn bộ phòng hoạt động trong tháng này:',
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -324,7 +361,10 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                       initialValue: month,
                       decoration: const InputDecoration(labelText: 'Tháng'),
                       items: List.generate(12, (i) {
-                        return DropdownMenuItem(value: i + 1, child: Text('Tháng ${i + 1}'));
+                        return DropdownMenuItem(
+                          value: i + 1,
+                          child: Text('Tháng ${i + 1}'),
+                        );
                       }),
                       onChanged: (v) {
                         if (v != null) month = v;
@@ -337,9 +377,18 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
                       initialValue: year,
                       decoration: const InputDecoration(labelText: 'Năm'),
                       items: [
-                        DropdownMenuItem(value: DateTime.now().year - 1, child: Text('${DateTime.now().year - 1}')),
-                        DropdownMenuItem(value: DateTime.now().year, child: Text('${DateTime.now().year}')),
-                        DropdownMenuItem(value: DateTime.now().year + 1, child: Text('${DateTime.now().year + 1}')),
+                        DropdownMenuItem(
+                          value: DateTime.now().year - 1,
+                          child: Text('${DateTime.now().year - 1}'),
+                        ),
+                        DropdownMenuItem(
+                          value: DateTime.now().year,
+                          child: Text('${DateTime.now().year}'),
+                        ),
+                        DropdownMenuItem(
+                          value: DateTime.now().year + 1,
+                          child: Text('${DateTime.now().year + 1}'),
+                        ),
                       ],
                       onChanged: (v) {
                         if (v != null) year = v;
@@ -358,19 +407,35 @@ class _AdminInvoiceManagementScreenState extends ConsumerState<AdminInvoiceManag
             TextButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
-                final error = await ref.read(adminInvoicesProvider.notifier).generateMonthly(month, year);
+                final result = await ref
+                    .read(adminInvoicesProvider.notifier)
+                    .generateMonthly(month, year);
                 if (screenContext.mounted) {
+                  final error = result.error;
                   if (error != null) {
                     if (error.contains('Thiếu chỉ số')) {
                       _showMissingMeterReadingDialog(screenContext, error);
                     } else {
                       ScaffoldMessenger.of(screenContext).showSnackBar(
-                        SnackBar(content: Text(error), backgroundColor: AppColors.error),
+                        SnackBar(
+                          content: Text(error),
+                          backgroundColor: AppColors.error,
+                        ),
                       );
                     }
+                  } else if (result.createdCount == 0) {
+                    ScaffoldMessenger.of(screenContext).showSnackBar(
+                      const SnackBar(
+                        content: Text('Không còn hóa đơn để khởi chạy'),
+                        backgroundColor: AppColors.warning,
+                      ),
+                    );
                   } else {
                     ScaffoldMessenger.of(screenContext).showSnackBar(
-                      const SnackBar(content: Text('Khởi tạo hóa đơn thành công!'), backgroundColor: AppColors.success),
+                      const SnackBar(
+                        content: Text('Khởi tạo hóa đơn thành công!'),
+                        backgroundColor: AppColors.success,
+                      ),
                     );
                   }
                 }
@@ -414,7 +479,10 @@ class _InvoiceDetailView extends ConsumerStatefulWidget {
   final int invoiceId;
   final VoidCallback onRefreshList;
 
-  const _InvoiceDetailView({required this.invoiceId, required this.onRefreshList});
+  const _InvoiceDetailView({
+    required this.invoiceId,
+    required this.onRefreshList,
+  });
 
   @override
   ConsumerState<_InvoiceDetailView> createState() => _InvoiceDetailViewState();
@@ -470,9 +538,7 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
                         context: context,
                         initialDate: dueDate,
                         firstDate: today,
-                        lastDate: today.add(
-                          const Duration(days: 365),
-                        ),
+                        lastDate: today.add(const Duration(days: 365)),
                       );
                       if (picked != null) {
                         setDialogState(() => dueDate = picked);
@@ -501,7 +567,9 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _actionLoading = true);
-    final error = await ref.read(adminInvoicesProvider.notifier).issueInvoice(
+    final error = await ref
+        .read(adminInvoicesProvider.notifier)
+        .issueInvoice(
           widget.invoiceId,
           dueDate.toIso8601String().substring(0, 10),
         );
@@ -546,9 +614,7 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Số tiền (VND)',
-                ),
+                decoration: const InputDecoration(labelText: 'Số tiền (VND)'),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                   signed: true,
@@ -645,9 +711,7 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
             child: const Text('Đóng'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.danger,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () {
               if (formKey.currentState!.validate()) {
                 Navigator.pop(dialogContext, true);
@@ -660,10 +724,9 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
     );
     if (confirmed == true && mounted) {
       setState(() => _actionLoading = true);
-      final error = await ref.read(adminInvoicesProvider.notifier).cancelInvoice(
-            widget.invoiceId,
-            reasonController.text.trim(),
-          );
+      final error = await ref
+          .read(adminInvoicesProvider.notifier)
+          .cancelInvoice(widget.invoiceId, reasonController.text.trim());
       if (mounted) {
         setState(() => _actionLoading = false);
         if (error != null) {
@@ -798,7 +861,10 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Phòng ${invoice.roomNumber}', style: AppTextStyles.headlineSm),
+                      Text(
+                        'Phòng ${invoice.roomNumber}',
+                        style: AppTextStyles.headlineSm,
+                      ),
                       StatusChip(status: invoice.status ?? 'DRAFT'),
                     ],
                   ),
@@ -806,11 +872,25 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
                   const Divider(),
                   const SizedBox(height: 16),
 
-                  _buildDetailRow('Tổng tiền hóa đơn', CurrencyFormatter.format(invoice.totalAmount), color: Theme.of(context).colorScheme.primaryContainer),
+                  _buildDetailRow(
+                    'Tổng tiền hóa đơn',
+                    CurrencyFormatter.format(invoice.totalAmount),
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                  ),
                   const SizedBox(height: 8),
-                  _buildDetailRow('Đã đóng', CurrencyFormatter.format(invoice.paidAmount), color: AppColors.success),
+                  _buildDetailRow(
+                    'Đã đóng',
+                    CurrencyFormatter.format(invoice.paidAmount),
+                    color: AppColors.success,
+                  ),
                   const SizedBox(height: 8),
-                  _buildDetailRow('Còn nợ', CurrencyFormatter.format(remaining), color: remaining > 0 ? AppColors.danger : Theme.of(context).colorScheme.onSurface),
+                  _buildDetailRow(
+                    'Còn nợ',
+                    CurrencyFormatter.format(remaining),
+                    color: remaining > 0
+                        ? AppColors.danger
+                        : Theme.of(context).colorScheme.onSurface,
+                  ),
 
                   const SizedBox(height: 20),
                   Text('Danh sách chi phí:', style: AppTextStyles.titleSm),
@@ -827,7 +907,12 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
                               style: AppTextStyles.bodyMd,
                             ),
                           ),
-                          Text(CurrencyFormatter.format(item.amount), style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.bold)),
+                          Text(
+                            CurrencyFormatter.format(item.amount),
+                            style: AppTextStyles.bodyMd.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -848,10 +933,11 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
                           return ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: CircleAvatar(
-                              backgroundColor: (isConfirmed
-                                      ? AppColors.success
-                                      : AppColors.outline)
-                                  .withValues(alpha: 0.12),
+                              backgroundColor:
+                                  (isConfirmed
+                                          ? AppColors.success
+                                          : AppColors.outline)
+                                      .withValues(alpha: 0.12),
                               child: Icon(
                                 isConfirmed
                                     ? Icons.check_circle_outline
@@ -945,8 +1031,18 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
           },
         );
       },
-      loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
-      error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(32), child: Text('Không thể tải chi tiết: $e'))),
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text('Không thể tải chi tiết: $e'),
+        ),
+      ),
     );
   }
 
@@ -959,7 +1055,10 @@ class _InvoiceDetailViewState extends ConsumerState<_InvoiceDetailView> {
           Text(label, style: AppTextStyles.bodyMd),
           Text(
             value,
-            style: AppTextStyles.bodyMd.copyWith(fontWeight: FontWeight.bold, color: color),
+            style: AppTextStyles.bodyMd.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),

@@ -390,17 +390,14 @@ class AdminShell extends StatelessWidget {
     final location = GoRouterState.of(context).matchedLocation;
     int currentIndex = 0;
     if (location == AppRoutes.adminDashboard) currentIndex = 0;
-    if (location == AppRoutes.adminRooms ||
-        location == AppRoutes.adminTenants ||
-        location == AppRoutes.adminContracts) {
+    if (location == AppRoutes.adminMaintenance) {
       currentIndex = 1;
     }
     if (location == AppRoutes.adminInvoices ||
         location == AppRoutes.adminMeterReadings) {
       currentIndex = 2;
     }
-    if (location == AppRoutes.adminRevenue ||
-        location == AppRoutes.adminMaintenance) {
+    if (location == AppRoutes.adminRevenue) {
       currentIndex = 3;
     }
 
@@ -413,7 +410,7 @@ class AdminShell extends StatelessWidget {
             case 0:
               context.go(AppRoutes.adminDashboard);
             case 1:
-              context.go(AppRoutes.adminRooms);
+              context.go(AppRoutes.adminMaintenance);
             case 2:
               context.go(AppRoutes.adminInvoices);
             case 3:
@@ -427,9 +424,9 @@ class AdminShell extends StatelessWidget {
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: Icon(Icons.apartment_outlined),
-            selectedIcon: Icon(Icons.apartment),
-            label: 'Quản lý',
+            icon: Icon(Icons.build_outlined),
+            selectedIcon: Icon(Icons.build),
+            label: 'Sửa chữa',
           ),
           NavigationDestination(
             icon: Icon(Icons.receipt_outlined),

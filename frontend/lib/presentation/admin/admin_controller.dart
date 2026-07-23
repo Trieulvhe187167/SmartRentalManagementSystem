@@ -22,8 +22,8 @@ final adminRoomStatsProvider = FutureProvider<Map<String, int>>((ref) async {
 
 final adminRevenueSummaryProvider =
     FutureProvider.family<List<MonthlyRevenueData>, int>((ref, year) async {
-  return AdminRepository.instance.revenueSummary(year: year);
-});
+      return AdminRepository.instance.revenueSummary(year: year);
+    });
 
 final adminExpiringContractsProvider = FutureProvider<List<RentalContract>>((
   ref,
@@ -350,6 +350,15 @@ final adminContractsProvider =
     });
 
 // ─── Admin Invoices Provider ─────────────────────────────
+class GenerateMonthlyInvoicesResult {
+  final int createdCount;
+  final String? error;
+
+  const GenerateMonthlyInvoicesResult({this.createdCount = 0, this.error});
+
+  bool get isSuccess => error == null;
+}
+
 class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
   AdminInvoicesNotifier() : super(const PaginatedState()) {
     fetchInvoices();
@@ -414,20 +423,25 @@ class AdminInvoicesNotifier extends StateNotifier<PaginatedState<Invoice>> {
     }
   }
 
-  Future<String?> generateMonthly(int month, int year) async {
+  Future<GenerateMonthlyInvoicesResult> generateMonthly(
+    int month,
+    int year,
+  ) async {
     try {
-      await AdminRepository.instance.generateMonthly(
+      final invoices = await AdminRepository.instance.generateMonthly(
         GenerateMonthlyInvoicesRequest(billingMonth: month, billingYear: year),
       );
       fetchInvoices(refresh: true);
-      return null;
+      return GenerateMonthlyInvoicesResult(createdCount: invoices.length);
     } on ApiException catch (e) {
       if (e.errorCode == 'METER_READING_NOT_FOUND') {
-        return _missingMeterReadingMessage(e.message, month, year);
+        return GenerateMonthlyInvoicesResult(
+          error: _missingMeterReadingMessage(e.message, month, year),
+        );
       }
-      return e.message;
+      return GenerateMonthlyInvoicesResult(error: e.message);
     } catch (e) {
-      return e.toString();
+      return GenerateMonthlyInvoicesResult(error: e.toString());
     }
   }
 
