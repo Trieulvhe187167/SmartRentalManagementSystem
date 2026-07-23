@@ -44,11 +44,12 @@ class AdminMeterReadingScreen extends ConsumerStatefulWidget {
 class _AdminMeterReadingScreenState
     extends ConsumerState<AdminMeterReadingScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _prevCtrl = TextEditingController();
-  final _currCtrl = TextEditingController();
+  final _electricPrevCtrl = TextEditingController();
+  final _electricCurrCtrl = TextEditingController();
+  final _waterPrevCtrl = TextEditingController();
+  final _waterCurrCtrl = TextEditingController();
 
   int? _selectedRoomId;
-  int? _selectedServiceId;
   int _selectedMonth = DateTime.now().month;
   int _selectedYear = DateTime.now().year;
   DateTime _readingDate = DateTime.now();
@@ -56,23 +57,36 @@ class _AdminMeterReadingScreenState
 
   @override
   void dispose() {
-    _prevCtrl.dispose();
-    _currCtrl.dispose();
+    _electricPrevCtrl.dispose();
+    _electricCurrCtrl.dispose();
+    _waterPrevCtrl.dispose();
+    _waterCurrCtrl.dispose();
     super.dispose();
   }
 
-  void _onRoomOrServiceChanged(int? roomId, int? serviceId) async {
-    if (roomId == null || serviceId == null) return;
-    // trigger auto fetch for previous reading
-    ref.invalidate(latestReadingProvider((roomId, serviceId)));
-    final latest = await ref.read(
-      latestReadingProvider((roomId, serviceId)).future,
+  ServiceItem _serviceByCode(List<ServiceItem> services, String code) {
+    return services.firstWhere(
+      (service) => service.code?.toUpperCase() == code,
+      orElse: () => throw StateError('Không tìm thấy dịch vụ $code'),
     );
-    if (latest != null) {
-      _prevCtrl.text = (latest.currentReading ?? 0.0).toStringAsFixed(1);
-    } else {
-      _prevCtrl.text = '0.0';
-    }
+  }
+
+  Future<void> _loadPreviousReadings(
+    int? roomId,
+    List<ServiceItem> services,
+  ) async {
+    if (roomId == null) return;
+    final electricity = _serviceByCode(services, 'ELECTRICITY');
+    final water = _serviceByCode(services, 'WATER');
+    final readings = await Future.wait([
+      ref.read(latestReadingProvider((roomId, electricity.id!)).future),
+      ref.read(latestReadingProvider((roomId, water.id!)).future),
+    ]);
+    if (!mounted || roomId != _selectedRoomId) return;
+    _electricPrevCtrl.text = (readings[0]?.currentReading ?? 0).toStringAsFixed(
+      1,
+    );
+    _waterPrevCtrl.text = (readings[1]?.currentReading ?? 0).toStringAsFixed(1);
   }
 
   Future<void> _submit() async {
@@ -86,39 +100,46 @@ class _AdminMeterReadingScreenState
       );
       return;
     }
-    if (_selectedServiceId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn loại chỉ số'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
     setState(() => _submitting = true);
 
-    final req = MeterReadingRequest(
-      roomId: _selectedRoomId!,
-      serviceId: _selectedServiceId!,
-      billingMonth: _selectedMonth,
-      billingYear: _selectedYear,
-      previousReading: double.tryParse(_prevCtrl.text.trim()) ?? 0.0,
-      currentReading: double.tryParse(_currCtrl.text.trim()) ?? 0.0,
-      readingDate: _readingDate.toIso8601String().substring(0, 10),
-    );
-
     try {
-      await AdminRepository.instance.createMeterReading(req);
+      final services = await ref.read(meteredServicesProvider.future);
+      final electricity = _serviceByCode(services, 'ELECTRICITY');
+      final water = _serviceByCode(services, 'WATER');
+      final readingDate = _readingDate.toIso8601String().substring(0, 10);
+
+      MeterReadingRequest request(
+        ServiceItem service,
+        TextEditingController previous,
+        TextEditingController current,
+      ) => MeterReadingRequest(
+        roomId: _selectedRoomId!,
+        serviceId: service.id!,
+        billingMonth: _selectedMonth,
+        billingYear: _selectedYear,
+        previousReading: double.parse(previous.text.trim()),
+        currentReading: double.parse(current.text.trim()),
+        readingDate: readingDate,
+      );
+
+      await Future.wait([
+        AdminRepository.instance.createMeterReading(
+          request(electricity, _electricPrevCtrl, _electricCurrCtrl),
+        ),
+        AdminRepository.instance.createMeterReading(
+          request(water, _waterPrevCtrl, _waterCurrCtrl),
+        ),
+      ]);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Nhập chỉ số thành công!'),
+            content: Text('Nhập chỉ số điện và nước thành công!'),
             backgroundColor: AppColors.success,
           ),
         );
-        _currCtrl.clear();
-        _onRoomOrServiceChanged(_selectedRoomId, _selectedServiceId);
+        _electricCurrCtrl.clear();
+        _waterCurrCtrl.clear();
+        _loadPreviousReadings(_selectedRoomId, services);
       }
     } catch (e) {
       if (mounted) {
@@ -132,6 +153,69 @@ class _AdminMeterReadingScreenState
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Widget _readingInputs({
+    required String title,
+    required String? unit,
+    required IconData icon,
+    required TextEditingController previous,
+    required TextEditingController current,
+  }) {
+    String? validateNumber(String? value, String label) {
+      if (value == null || value.trim().isEmpty) {
+        return 'Vui lòng nhập $label';
+      }
+      if (double.tryParse(value.trim()) == null) {
+        return '$label không hợp lệ';
+      }
+      return null;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(title, style: AppTextStyles.titleMd),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: previous,
+          readOnly: true,
+          decoration: InputDecoration(
+            labelText: 'Chỉ số $title cũ',
+            suffixText: unit,
+            prefixIcon: const Icon(Icons.history_outlined),
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          validator: (value) => validateNumber(value, 'chỉ số cũ'),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: current,
+          decoration: InputDecoration(
+            labelText: 'Chỉ số $title mới',
+            suffixText: unit,
+            prefixIcon: const Icon(Icons.speed_outlined),
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          validator: (value) {
+            final error = validateNumber(value, 'chỉ số mới');
+            if (error != null) return error;
+            final oldValue = double.tryParse(previous.text.trim()) ?? 0;
+            final newValue = double.parse(value!.trim());
+            if (newValue < oldValue) {
+              return 'Chỉ số mới không được nhỏ hơn chỉ số cũ';
+            }
+            return null;
+          },
+        ),
+      ],
+    );
   }
 
   @override
@@ -174,42 +258,15 @@ class _AdminMeterReadingScreenState
                         }).toList(),
                         onChanged: (id) {
                           setState(() => _selectedRoomId = id);
-                          _onRoomOrServiceChanged(id, _selectedServiceId);
+                          ref.read(meteredServicesProvider.future).then((
+                            services,
+                          ) {
+                            _loadPreviousReadings(id, services);
+                          });
                         },
                       ),
                       loading: () => const LoadingShimmer(height: 52),
                       error: (e, _) => Text('Lỗi tải phòng: $e'),
-                    ),
-                    const SizedBox(height: 16),
-
-                    servicesAsync.when(
-                      data: (services) {
-                        return DropdownButtonFormField<int>(
-                          initialValue: _selectedServiceId,
-                          decoration: const InputDecoration(
-                            labelText: 'Loại chỉ số',
-                          ),
-                          items: services.map((service) {
-                            final unit = service.unit == null
-                                ? ''
-                                : ' (${service.unit})';
-                            return DropdownMenuItem(
-                              value: service.id,
-                              child: Text(
-                                '${service.name ?? service.code ?? 'Dịch vụ'}$unit',
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() => _selectedServiceId = v);
-                              _onRoomOrServiceChanged(_selectedRoomId, v);
-                            }
-                          },
-                        );
-                      },
-                      loading: () => const LoadingShimmer(height: 52),
-                      error: (e, _) => Text('Lỗi tải dịch vụ: $e'),
                     ),
                     const SizedBox(height: 16),
 
@@ -268,72 +325,53 @@ class _AdminMeterReadingScreenState
               Text('Chỉ số đo đạc', style: AppTextStyles.titleMd),
               const SizedBox(height: 12),
               AppCard(
-                child: Column(
-                  children: [
-                    // Previous Reading
-                    TextFormField(
-                      controller: _prevCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Chỉ số cũ',
-                        prefixIcon: Icon(Icons.history_outlined),
+                child: servicesAsync.when(
+                  data: (services) => Column(
+                    children: [
+                      _readingInputs(
+                        title: 'Điện',
+                        unit: _serviceByCode(services, 'ELECTRICITY').unit,
+                        icon: Icons.electric_bolt_outlined,
+                        previous: _electricPrevCtrl,
+                        current: _electricCurrCtrl,
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                      const Divider(height: 32),
+                      _readingInputs(
+                        title: 'Nước',
+                        unit: _serviceByCode(services, 'WATER').unit,
+                        icon: Icons.water_drop_outlined,
+                        previous: _waterPrevCtrl,
+                        current: _waterCurrCtrl,
                       ),
-                      validator: (v) => (v == null || v.isEmpty)
-                          ? 'Vui lòng nhập chỉ số cũ'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 20),
 
-                    // Current Reading
-                    TextFormField(
-                      controller: _currCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Chỉ số mới',
-                        prefixIcon: Icon(Icons.speed_outlined),
-                      ),
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'Vui lòng nhập chỉ số mới';
-                        }
-                        final prev = double.tryParse(_prevCtrl.text) ?? 0.0;
-                        final curr = double.tryParse(v) ?? 0.0;
-                        if (curr < prev) {
-                          return 'Chỉ số mới không được nhỏ hơn chỉ số cũ';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Date Picker Input
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _readingDate,
-                          firstDate: DateTime.now().subtract(
-                            const Duration(days: 30),
+                      // Date Picker Input
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _readingDate,
+                            firstDate: DateTime.now().subtract(
+                              const Duration(days: 30),
+                            ),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) {
+                            setState(() => _readingDate = picked);
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Ngày chốt số',
+                            prefixIcon: Icon(Icons.calendar_today_outlined),
                           ),
-                          lastDate: DateTime.now(),
-                        );
-                        if (picked != null) {
-                          setState(() => _readingDate = picked);
-                        }
-                      },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Ngày chốt số',
-                          prefixIcon: Icon(Icons.calendar_today_outlined),
+                          child: Text(DateFormatter.format(_readingDate)),
                         ),
-                        child: Text(DateFormatter.format(_readingDate)),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  loading: () => const LoadingShimmer(height: 260),
+                  error: (e, _) => Text('Lỗi tải dịch vụ: $e'),
                 ),
               ),
               const SizedBox(height: 32),
@@ -349,7 +387,7 @@ class _AdminMeterReadingScreenState
                           height: 20,
                           child: CircularProgressIndicator(color: Colors.white),
                         )
-                      : const Text('Ghi nhận chỉ số'),
+                      : const Text('Ghi nhận chỉ số điện và nước'),
                 ),
               ),
             ],
