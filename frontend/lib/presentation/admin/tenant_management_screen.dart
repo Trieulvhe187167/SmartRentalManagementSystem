@@ -4,6 +4,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../core/utils/date_formatter.dart';
 import '../../data/models/tenant_models.dart';
+import '../../data/repositories/admin_repository.dart';
 import '../shared/widgets/status_chip.dart';
 import '../shared/widgets/empty_state.dart';
 import '../shared/widgets/loading_shimmer.dart';
@@ -788,7 +789,6 @@ class _AdminTenantManagementScreenState
                 .read(adminTenantsProvider.notifier)
                 .createTenant(req);
             if (context.mounted) {
-              Navigator.pop(context);
               if (error != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -797,6 +797,7 @@ class _AdminTenantManagementScreenState
                   ),
                 );
               } else {
+                Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Thêm khách thuê mới thành công'),
@@ -831,6 +832,58 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   String _idType = 'CCCD';
+  String? _idNumberError;
+  bool _isSubmitting = false;
+
+  Future<bool> _identityNumberExists(String identityNumber) async {
+    final result = await AdminRepository.instance.tenants(
+      keyword: identityNumber,
+      size: 100,
+    );
+    return result.content.any(
+      (tenant) => tenant.idNumber?.trim() == identityNumber,
+    );
+  }
+
+  Future<void> _submit() async {
+    setState(() => _idNumberError = null);
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isSubmitting = true);
+    try {
+      final identityNumber = _idNoCtrl.text.trim();
+      if (await _identityNumberExists(identityNumber)) {
+        if (!mounted) return;
+        setState(() => _idNumberError = 'Số CMND/CCCD đã tồn tại');
+        _formKey.currentState!.validate();
+        return;
+      }
+
+      await widget.onSubmit(
+        TenantRequest(
+          fullName: _nameCtrl.text.trim(),
+          email: _emailCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+          idNumber: identityNumber,
+          idType: _idType,
+          address: _addrCtrl.text.trim(),
+          username: _userCtrl.text.trim(),
+          password: _passCtrl.text,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể kiểm tra CCCD: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -924,15 +977,23 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
                         labelText: 'Số CMND/CCCD',
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Nhập số CMND'
-                          : null,
+                      onChanged: (_) {
+                        if (_idNumberError != null) {
+                          setState(() => _idNumberError = null);
+                        }
+                      },
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Nhập số CMND/CCCD';
+                        }
+                        return _idNumberError;
+                      },
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _idType,
+                      initialValue: _idType,
                       decoration: const InputDecoration(
                         labelText: 'Loại giấy tờ',
                       ),
@@ -1005,23 +1066,14 @@ class _CreateTenantFormState extends State<_CreateTenantForm> {
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      widget.onSubmit(
-                        TenantRequest(
-                          fullName: _nameCtrl.text.trim(),
-                          email: _emailCtrl.text.trim(),
-                          phone: _phoneCtrl.text.trim(),
-                          idNumber: _idNoCtrl.text.trim(),
-                          idType: _idType,
-                          address: _addrCtrl.text.trim(),
-                          username: _userCtrl.text.trim(),
-                          password: _passCtrl.text,
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('Thêm khách hàng'),
+                  onPressed: _isSubmitting ? null : _submit,
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Thêm khách hàng'),
                 ),
               ),
             ],
